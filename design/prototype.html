@@ -1,0 +1,674 @@
+<title>연분 프로토타입</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+  /* ── page (theme-aware) ─────────────────────────── */
+  :root { --pg-bg:#F3EEE4; --pg-ink:#26221B; --pg-muted:#7A7160; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --pg-bg:#171410; --pg-ink:#EAE3D4; --pg-muted:#9C917D; }
+  }
+  :root[data-theme="dark"] { --pg-bg:#171410; --pg-ink:#EAE3D4; --pg-muted:#9C917D; }
+
+  /* ── app palette (deliberately light, fixed) ────── */
+  :root {
+    --bg:#FDFBF6; --card:#FFFFFF; --ink:#221E17; --muted:#7B7260; --faint:#A79D89;
+    --line:#ECE4D3; --line-2:#DCD2BC;
+    --accent:#B93359; --accent-deep:#8E2547; --accent-soft:#F8E6EC; --on-accent:#FFFFFF;
+    --coin:#A9812A; --coin-soft:#F6EDD8;
+    --good:#3E6B4C; --good-soft:#E4EFE7;
+    --indigo:#33506C;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; }
+  body {
+    margin:0; background:var(--pg-bg); color:var(--pg-ink);
+    font-family:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:20px 12px; word-break:keep-all;
+  }
+  .page-cap { font-size:.8rem; color:var(--pg-muted); margin-top:14px; letter-spacing:.02em; }
+
+  /* ── phone frame ────────────────────────────────── */
+  .phone {
+    width:min(414px,100%); height:min(860px, calc(100dvh - 70px)); min-height:600px;
+    background:var(--bg); color:var(--ink); border-radius:34px; overflow:hidden;
+    box-shadow:0 24px 60px rgba(20,12,8,.28), 0 0 0 1px rgba(0,0,0,.08);
+    display:flex; flex-direction:column; position:relative;
+  }
+  .statusbar {
+    flex:none; height:34px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 22px; font-size:.72rem; font-weight:600; color:var(--muted); letter-spacing:.03em;
+  }
+
+  /* ── top bar ────────────────────────────────────── */
+  .topbar { flex:none; display:flex; align-items:center; justify-content:space-between; padding:6px 18px 10px; }
+  .brand { font-family:"Hahmlet",serif; font-size:1.3rem; font-weight:700; letter-spacing:.01em; }
+  .brand small { font-size:.8rem; font-weight:500; color:var(--accent); margin-left:4px; }
+  .screen-title { font-size:1.05rem; font-weight:700; }
+  .coinpill {
+    display:flex; align-items:center; gap:6px; background:var(--coin-soft); color:var(--coin);
+    border-radius:999px; padding:4px 12px 4px 8px; font-weight:700; font-size:.86rem;
+    font-variant-numeric:tabular-nums; border:1px solid #E8D9B4; cursor:pointer;
+  }
+  .coinpill .c { width:16px; height:16px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#E7C36A,#A9812A);
+    display:inline-block; position:relative; }
+  .coinpill .c::after { content:""; position:absolute; inset:5px; border-radius:2px; background:var(--coin-soft); }
+
+  /* ── screens ────────────────────────────────────── */
+  .stage { flex:1; position:relative; overflow:hidden; }
+  .screen { position:absolute; inset:0; overflow-y:auto; padding:2px 18px 22px; display:none; scrollbar-width:none; }
+  .screen::-webkit-scrollbar { display:none; }
+  .screen.on { display:block; animation:fadein .18s ease; }
+  @keyframes fadein { from{opacity:.4; transform:translateY(4px);} to{opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce) { .screen.on, .card-anim, .sheet, .toast { animation:none !important; transition:none !important; } }
+
+  /* ── tab bar ────────────────────────────────────── */
+  .tabbar {
+    flex:none; display:flex; border-top:1px solid var(--line); background:var(--card);
+    padding:6px 6px calc(10px + env(safe-area-inset-bottom));
+  }
+  .tab { flex:1; background:none; border:none; font:inherit; color:var(--faint); display:flex; flex-direction:column;
+    align-items:center; gap:3px; padding:6px 0 2px; cursor:pointer; border-radius:12px; }
+  .tab svg { width:23px; height:23px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .tab span { font-size:.66rem; font-weight:600; letter-spacing:.02em; }
+  .tab.on { color:var(--accent); }
+  .tab:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+  .tab .dot { position:relative; }
+  .tab .dot::after { content:""; position:absolute; top:-1px; right:-4px; width:7px; height:7px; border-radius:50%; background:var(--accent); }
+
+  /* ── shared bits ────────────────────────────────── */
+  .btn {
+    font:inherit; font-weight:700; border:none; border-radius:14px; padding:14px 18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+  }
+  .btn:focus-visible { outline:2px solid var(--accent-deep); outline-offset:2px; }
+  .btn.primary { background:var(--accent); color:var(--on-accent); }
+  .btn.primary:active { background:var(--accent-deep); }
+  .btn.ghost { background:var(--card); color:var(--ink); border:1.5px solid var(--line-2); }
+  .btn.small { width:auto; padding:9px 16px; font-size:.86rem; border-radius:11px; }
+  .cost { font-size:.78rem; font-weight:600; opacity:.85; background:rgba(255,255,255,.22); border-radius:999px; padding:1px 8px; }
+  .btn.ghost .cost { background:var(--coin-soft); color:var(--coin); }
+  .chip { display:inline-block; font-size:.72rem; font-weight:700; border-radius:999px; padding:2px 10px; }
+  .chip.acc { background:var(--accent-soft); color:var(--accent-deep); }
+  .chip.good { background:var(--good-soft); color:var(--good); }
+  .chip.mut { background:#F1ECDF; color:var(--muted); }
+  .sect { font-size:.78rem; font-weight:700; letter-spacing:.1em; color:var(--muted); text-transform:uppercase; margin:22px 2px 10px; }
+  .note { font-size:.78rem; color:var(--faint); line-height:1.6; }
+
+  /* ── HOME: card deck ────────────────────────────── */
+  .deck-head { display:flex; align-items:baseline; justify-content:space-between; margin:4px 2px 10px; }
+  .deck-head b { font-size:1.02rem; }
+  .deck-head span { font-size:.78rem; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .pcard {
+    background:var(--card); border-radius:22px; overflow:hidden; border:1px solid var(--line);
+    box-shadow:0 10px 30px rgba(60,30,20,.10);
+  }
+  .card-anim { animation:cardin .28s ease; }
+  @keyframes cardin { from{opacity:0; transform:translateX(26px) rotate(1.2deg);} to{opacity:1; transform:none;} }
+  .photo { position:relative; height:340px; display:flex; align-items:flex-end; }
+  .photo .face {
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:"Hahmlet",serif; font-size:5.2rem; font-weight:600; color:rgba(255,255,255,.85);
+    text-shadow:0 2px 18px rgba(0,0,0,.18);
+  }
+  .photo .shade { position:absolute; inset:0; background:linear-gradient(180deg,transparent 45%,rgba(20,8,10,.62)); }
+  .photo .info { position:relative; padding:16px 18px; color:#fff; width:100%; display:flex; align-items:flex-end; justify-content:space-between; gap:10px; }
+  .info .nm { font-size:1.35rem; font-weight:700; }
+  .info .sub { font-size:.82rem; opacity:.9; margin-top:2px; }
+  .ring { --p:87; width:74px; height:74px; border-radius:50%; flex:none;
+    background:conic-gradient(var(--accent) calc(var(--p)*1%), rgba(255,255,255,.25) 0);
+    display:flex; align-items:center; justify-content:center; }
+  .ring > div { width:60px; height:60px; border-radius:50%; background:rgba(24,10,14,.82); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .ring b { font-size:1.25rem; line-height:1; font-variant-numeric:tabular-nums; }
+  .ring i { font-style:normal; font-size:.6rem; opacity:.85; margin-top:2px; }
+  .gung-line { padding:13px 18px; display:flex; align-items:center; gap:9px; border-bottom:1px solid var(--line); }
+  .gung-line .k { font-family:"Hahmlet",serif; color:var(--accent-deep); font-weight:600; font-size:.92rem; flex:none; }
+  .gung-line .v { font-size:.9rem; color:var(--ink); }
+  .tagrow { padding:12px 18px 14px; display:flex; flex-wrap:wrap; gap:6px; }
+  .actions { display:grid; grid-template-columns:56px 1fr 1fr; gap:10px; margin:14px 0 6px; }
+  .pass { background:var(--card); border:1.5px solid var(--line-2); border-radius:14px; font-size:1.15rem; color:var(--muted); cursor:pointer; }
+  .deck-empty { text-align:center; padding:60px 20px 30px; }
+  .deck-empty .big { font-family:"Hahmlet",serif; font-size:1.25rem; font-weight:600; margin-bottom:8px; }
+
+  /* ── FORTUNE ────────────────────────────────────── */
+  .fcard { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; margin-bottom:12px; }
+  .fcard h4 { margin:0 0 4px; font-size:.98rem; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .fcard p { margin:6px 0 0; font-size:.9rem; line-height:1.75; color:var(--ink); }
+  .fortune-hero {
+    background:linear-gradient(150deg,#3A2430,#8E2547 78%,#B93359); color:#fff; border:none;
+    border-radius:20px; padding:22px 20px; margin-bottom:12px;
+  }
+  .fortune-hero .dt { font-size:.76rem; opacity:.8; letter-spacing:.08em; }
+  .fortune-hero h3 { font-family:"Hahmlet",serif; margin:6px 0 10px; font-size:1.3rem; font-weight:600; }
+  .fortune-hero p { font-size:.9rem; line-height:1.8; margin:0 0 14px; opacity:.96; }
+  .fortune-hero .btn { background:#fff; color:var(--accent-deep); }
+  .saju-card { background:var(--card); border:1px solid var(--line-2); border-radius:20px; padding:20px 18px; text-align:center; }
+  .saju-card .lbl { font-size:.76rem; letter-spacing:.14em; color:var(--muted); font-weight:700; }
+  .pillars { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:14px 0 12px; }
+  .pillar { background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:10px 4px 12px; }
+  .pillar .t { font-size:.68rem; color:var(--faint); font-weight:600; }
+  .pillar .h { font-family:"Hahmlet",serif; font-size:1.5rem; font-weight:600; margin-top:4px; line-height:1.3; }
+  .pillar .h.acc { color:var(--accent-deep); }
+  .pillar .r { font-size:.68rem; color:var(--muted); margin-top:3px; }
+
+  /* ── INBOX ──────────────────────────────────────── */
+  .inrow { display:flex; align-items:center; gap:13px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:13px 14px; margin-bottom:10px; }
+  .ava { width:56px; height:56px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-family:"Hahmlet",serif; font-size:1.4rem; color:rgba(255,255,255,.9); position:relative; overflow:hidden; }
+  .ava.blurred > span { filter:blur(6px); }
+  .ava.blurred::after { content:"?"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(30,12,18,.35); color:#fff; font-weight:700; font-family:"Hahmlet",serif; font-size:1.3rem; }
+  .inrow .mid { flex:1; min-width:0; }
+  .inrow .nm { font-weight:700; font-size:.95rem; }
+  .inrow .ds { font-size:.78rem; color:var(--muted); margin-top:1px; }
+  .teaser { background:linear-gradient(135deg,var(--accent-soft),#FFF4F0); border:1px solid #F0CBD6; border-radius:18px; padding:16px; margin-bottom:12px; }
+  .teaser .tt { font-weight:700; font-size:.95rem; }
+  .teaser .tt b { color:var(--accent-deep); }
+
+  /* ── FEED ───────────────────────────────────────── */
+  .chiprow { display:flex; gap:7px; overflow-x:auto; padding:2px 0 12px; scrollbar-width:none; }
+  .chiprow::-webkit-scrollbar { display:none; }
+  .fchip { flex:none; font-size:.8rem; font-weight:600; border-radius:999px; padding:6px 14px; border:1px solid var(--line-2); background:var(--card); color:var(--muted); }
+  .fchip.on { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .post { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:15px 16px; margin-bottom:10px; }
+  .post .cat { font-size:.7rem; font-weight:700; color:var(--indigo); }
+  .post h4 { margin:5px 0 4px; font-size:.96rem; }
+  .post p { margin:0; font-size:.85rem; color:var(--muted); line-height:1.65; }
+  .post .meta { display:flex; gap:14px; font-size:.75rem; color:var(--faint); margin-top:9px; font-variant-numeric:tabular-nums; }
+
+  /* ── MY ─────────────────────────────────────────── */
+  .me { display:flex; align-items:center; gap:14px; padding:8px 2px 16px; }
+  .me .ava { width:64px; height:64px; }
+  .me h3 { margin:0; font-size:1.15rem; }
+  .me .ds { font-size:.82rem; color:var(--muted); margin-top:2px; }
+  .menu { background:var(--card); border:1px solid var(--line); border-radius:16px; overflow:hidden; margin-bottom:14px; }
+  .mrow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:15px 16px; border-bottom:1px solid var(--line);
+    background:none; border-left:none; border-right:none; border-top:none; width:100%; font:inherit; text-align:left; cursor:pointer; color:var(--ink); }
+  .menu .mrow:last-child { border-bottom:none; }
+  .mrow .l { font-weight:600; font-size:.93rem; }
+  .mrow .r { font-size:.84rem; color:var(--muted); display:flex; align-items:center; gap:6px; font-variant-numeric:tabular-nums; }
+  .mrow .r .arw { color:var(--faint); }
+
+  /* ── onboarding ─────────────────────────────────── */
+  .onboard { position:absolute; inset:0; background:var(--bg); z-index:30; display:flex; flex-direction:column; padding:26px 24px 28px; overflow-y:auto; }
+  .ob-step { display:none; flex:1; flex-direction:column; }
+  .ob-step.on { display:flex; }
+  .ob-top { flex:none; }
+  .ob-mid { flex:1; display:flex; flex-direction:column; justify-content:center; }
+  .ob-logo { font-family:"Hahmlet",serif; font-size:3rem; font-weight:700; line-height:1.2; }
+  .ob-logo em { font-style:normal; color:var(--accent); display:block; font-size:1.15rem; font-weight:500; margin-top:6px; }
+  .ob-tag { margin-top:16px; font-size:1rem; color:var(--muted); line-height:1.8; }
+  .ob-proof { margin-top:22px; font-size:.85rem; color:var(--accent-deep); font-weight:600; }
+  .ob-h { font-family:"Hahmlet",serif; font-size:1.5rem; font-weight:600; margin:8px 0 6px; line-height:1.45; }
+  .ob-sub { font-size:.88rem; color:var(--muted); line-height:1.7; margin-bottom:18px; }
+  .passbox { background:var(--good-soft); border:1px solid #CBE0D1; color:var(--good); border-radius:12px; padding:11px 14px; font-size:.86rem; font-weight:600; margin-bottom:16px; }
+  .timegrid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+  .tg { font:inherit; background:var(--card); border:1.5px solid var(--line-2); border-radius:11px; padding:10px 4px; cursor:pointer; text-align:center; color:var(--ink); }
+  .tg b { display:block; font-size:.9rem; }
+  .tg small { color:var(--faint); font-size:.68rem; }
+  .tg.sel { border-color:var(--accent); background:var(--accent-soft); color:var(--accent-deep); }
+  .tg.unknown { grid-column:1 / -1; }
+  .ob-foot { flex:none; margin-top:20px; }
+  .stepdots { display:flex; gap:6px; justify-content:center; margin-bottom:16px; }
+  .stepdots i { width:7px; height:7px; border-radius:50%; background:var(--line-2); }
+  .stepdots i.on { background:var(--accent); width:20px; border-radius:4px; }
+
+  /* ── sheet & toast ──────────────────────────────── */
+  .backdrop { position:absolute; inset:0; background:rgba(20,10,8,.42); z-index:40; opacity:0; pointer-events:none; transition:opacity .18s; }
+  .backdrop.on { opacity:1; pointer-events:auto; }
+  .sheet {
+    position:absolute; left:0; right:0; bottom:0; z-index:41; background:var(--card);
+    border-radius:24px 24px 0 0; padding:14px 22px calc(22px + env(safe-area-inset-bottom));
+    transform:translateY(105%); transition:transform .22s ease; max-height:78%; overflow-y:auto;
+  }
+  .sheet.on { transform:none; }
+  .sheet .grab { width:40px; height:4px; border-radius:2px; background:var(--line-2); margin:0 auto 16px; }
+  .sheet h3 { font-family:"Hahmlet",serif; margin:0 0 6px; font-size:1.2rem; font-weight:600; }
+  .sheet .desc { font-size:.88rem; color:var(--muted); line-height:1.7; margin:0 0 16px; }
+  .sheet .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
+  .elem { margin:10px 0; }
+  .elem .l { display:flex; justify-content:space-between; font-size:.82rem; font-weight:600; margin-bottom:5px; }
+  .elem .l span:last-child { color:var(--accent-deep); font-variant-numeric:tabular-nums; }
+  .bar { height:7px; border-radius:4px; background:var(--line); overflow:hidden; }
+  .bar > i { display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,var(--accent),var(--accent-deep)); }
+  .storeline { display:flex; justify-content:space-between; align-items:center; padding:12px 2px; border-bottom:1px solid var(--line); font-variant-numeric:tabular-nums; }
+  .storeline:last-of-type { border-bottom:none; }
+  .storeline .n { font-weight:700; display:flex; align-items:center; gap:8px; }
+  .storeline .p { font-size:.9rem; font-weight:600; background:var(--ink); color:var(--bg); border-radius:9px; padding:6px 12px; }
+  .toast {
+    position:absolute; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px); z-index:50;
+    background:var(--ink); color:var(--bg); font-size:.86rem; font-weight:600; border-radius:999px;
+    padding:10px 20px; opacity:0; transition:.22s; pointer-events:none; white-space:nowrap; max-width:92%;
+  }
+  .toast.on { opacity:1; transform:translateX(-50%); }
+</style>
+
+<div class="phone" id="phone">
+  <div class="statusbar"><span>6:28</span><span id="sb-mid" style="font-family:Hahmlet,serif">緣</span><span>◧ 48</span></div>
+
+  <!-- top bar -->
+  <div class="topbar">
+    <div id="tb-title" class="brand">연분<small>緣分</small></div>
+    <button class="coinpill" id="coinpill" aria-label="엽전 잔액, 스토어 열기"><span class="c"></span><span id="coin">420</span></button>
+  </div>
+
+  <div class="stage">
+    <!-- ═══ HOME ═══ -->
+    <section class="screen on" id="s-home">
+      <div class="deck-head"><b>오늘의 인연</b><span id="deck-count">1 / 3 · 자정에 새로 도착</span></div>
+      <div id="deck"></div>
+    </section>
+
+    <!-- ═══ FORTUNE ═══ -->
+    <section class="screen" id="s-fortune">
+      <div class="fortune-hero">
+        <div class="dt">8월 27일 수요일 · 정유일</div>
+        <h3 id="f-head">오늘의 운세가 도착했어요</h3>
+        <p id="f-body">확인할 때마다 엽전 5개를 드려요. 매일의 작은 의식으로, 인연 신호 한 번의 절반이 모여요.</p>
+        <button class="btn" id="f-btn">오늘의 운세 확인하기 <span class="cost" style="background:var(--coin-soft);color:var(--coin)">+5</span></button>
+      </div>
+
+      <div class="fcard">
+        <h4>이번 주 연애운 <span class="chip acc">상세 풀이</span></h4>
+        <p>수요일과 금요일, 서쪽 방향의 만남에 길한 기운이 머뭅니다. 상세 풀이에서 요일별 흐름과…</p>
+        <div style="margin-top:12px"><button class="btn ghost small" onclick="weeklyDetail()">전체 풀이 보기 <span class="cost">엽전 30</span></button></div>
+      </div>
+
+      <div class="sect">내 사주</div>
+      <div class="saju-card">
+        <div class="lbl">1997. 12. 21 · 축시생</div>
+        <div class="pillars">
+          <div class="pillar"><div class="t">시주</div><div class="h">丁丑</div><div class="r">정축</div></div>
+          <div class="pillar"><div class="t">일주</div><div class="h acc">庚午</div><div class="r">경오</div></div>
+          <div class="pillar"><div class="t">월주</div><div class="h">壬子</div><div class="r">임자</div></div>
+          <div class="pillar"><div class="t">연주</div><div class="h">丁丑</div><div class="r">정축</div></div>
+        </div>
+        <p style="font-size:.86rem; color:var(--muted); margin:0 0 14px; line-height:1.7">일간 <b style="color:var(--accent-deep)">경금(庚金)</b> — 단단한 무쇠의 기운. 물(水)의 기운을 지닌 상대를 만나면 빛나는 사주예요.</p>
+        <button class="btn ghost small" style="margin:0 auto" onclick="toast('사주 카드 이미지가 저장됐어요 (프로토타입)')">내 사주 카드 공유하기</button>
+      </div>
+    </section>
+
+    <!-- ═══ INBOX ═══ -->
+    <section class="screen" id="s-inbox">
+      <div class="sect" style="margin-top:6px">받은 신호</div>
+      <div class="inrow">
+        <div class="ava" style="background:linear-gradient(140deg,#6E4A7E,#B93359)"><span>서</span></div>
+        <div class="mid">
+          <div class="nm">서윤, 27 <span class="chip good">궁합 84</span></div>
+          <div class="ds">간호사 · 12.4km · 시주 정밀 궁합</div>
+        </div>
+        <button class="btn primary small" id="connect-btn" onclick="connectSignal(this)">연결하기</button>
+      </div>
+
+      <div class="teaser" id="teaser">
+        <div style="display:flex; align-items:center; gap:13px;">
+          <div class="ava blurred" style="background:linear-gradient(140deg,#B93359,#E08A5C)"><span>하</span></div>
+          <div style="flex:1">
+            <div class="tt"><b>상위 1% 궁합 · 92점</b>의 인연이<br>회원님의 프로필을 조회했어요</div>
+            <div class="ds" style="font-size:.78rem;color:var(--muted);margin-top:3px">3시간 전 · 경기 수원시</div>
+          </div>
+        </div>
+        <div style="margin-top:13px"><button class="btn primary" onclick="unblur()">누군지 확인하기 <span class="cost">엽전 60</span></button></div>
+      </div>
+
+      <div class="sect">나를 조회한 사람</div>
+      <div class="inrow">
+        <div class="ava" style="background:linear-gradient(140deg,#8A97AC,#5A6B84)"><span>+9</span></div>
+        <div class="mid">
+          <div class="nm">유리님 외 9명</div>
+          <div class="ds">회원님의 프로필을 조회했어요</div>
+        </div>
+        <button class="btn ghost small" onclick="passSheet()">목록보기</button>
+      </div>
+    </section>
+
+    <!-- ═══ FEED ═══ -->
+    <section class="screen" id="s-feed">
+      <div class="chiprow">
+        <button class="fchip on">최신</button><button class="fchip">인기</button><button class="fchip">고민상담</button>
+        <button class="fchip">사주풀이</button><button class="fchip">자유</button><button class="fchip">셀소</button>
+      </div>
+      <div class="post">
+        <div class="cat">고민상담</div>
+        <h4>일간 갑목인데 경금 남자분이랑 잘 될까요?</h4>
+        <p>궁합 91 떠서 신호 받았는데 금극목이라 걱정돼요. 근데 풀이에서는 "다듬어주는 관계"라고 나오네요… 경험담 있으신 분?</p>
+        <div class="meta"><span>👍 12</span><span>💬 8</span><span>👁 156</span><span>4분 전</span></div>
+      </div>
+      <div class="post">
+        <div class="cat">사주풀이</div>
+        <h4>축시생인지 인시생인지 애매하신 분들</h4>
+        <p>병원 출생기록 떼는 법 정리해봤어요. 시주 넣으니까 정밀 궁합 배지 붙어서 신호 수락률이 확 달라짐…</p>
+        <div class="meta"><span>👍 45</span><span>💬 23</span><span>👁 511</span><span>32분 전</span></div>
+      </div>
+      <div class="post">
+        <div class="cat">자유</div>
+        <h4>오늘의 운세 적중률 뭐냐</h4>
+        <p>"서쪽에서 인연이 온다"길래 웃었는데 수원 사는 분이랑 매칭됨ㅋㅋ 나 화성 삶</p>
+        <div class="meta"><span>👍 31</span><span>💬 14</span><span>👁 402</span><span>1시간 전</span></div>
+      </div>
+    </section>
+
+    <!-- ═══ MY ═══ -->
+    <section class="screen" id="s-my">
+      <div class="me">
+        <div class="ava" style="background:linear-gradient(140deg,#33506C,#221E17)"><span>은</span></div>
+        <div>
+          <h3>은성, 28 <span class="chip acc">경오일주</span></h3>
+          <div class="ds">회사원 · 경기 화성시 · 본인인증 완료</div>
+        </div>
+      </div>
+      <button class="btn ghost" style="margin-bottom:16px" onclick="toast('프로필 편집 (프로토타입)')">프로필 수정</button>
+
+      <div class="menu">
+        <button class="mrow" onclick="storeSheet()"><span class="l">스토어</span><span class="r"><span style="color:var(--coin);font-weight:700">엽전 <span id="coin2">420</span></span><span class="arw">›</span></span></button>
+        <button class="mrow" onclick="toast('인증 센터 (프로토타입)')"><span class="l">인증 센터</span><span class="r">본인 ✓ · 직장 미인증<span class="arw">›</span></span></button>
+        <button class="mrow" onclick="toast('미션 (프로토타입)')"><span class="l">미션</span><span class="r">6 / 9<span class="arw">›</span></span></button>
+        <button class="mrow" onclick="toast('내 사주 정보 · 출생시간 수정은 2회까지 가능해요')"><span class="l">내 사주 정보</span><span class="r">축시 · 수정 2회 남음<span class="arw">›</span></span></button>
+        <button class="mrow" onclick="toast('지인 차단 · 연락처 기반 (프로토타입)')"><span class="l">지인 차단</span><span class="r">켜짐<span class="arw">›</span></span></button>
+      </div>
+
+      <div class="fcard" style="background:linear-gradient(135deg,var(--accent-soft),#FFF6F1); border-color:#F0CBD6">
+        <h4 style="font-family:Hahmlet,serif; font-weight:600">연분 패스</h4>
+        <p style="font-size:.85rem">궁합 상세 무제한 · 조회자 전체 공개 · 매월 엽전 300</p>
+        <div style="margin-top:12px"><button class="btn primary small" onclick="toast('구독 결제 흐름 (프로토타입)')">월 ₩14,900으로 시작</button></div>
+      </div>
+      <p class="note" style="text-align:center; margin-top:16px">엽전 환불은 구매 7일 이내 미사용분만 가능해요</p>
+    </section>
+  </div>
+
+  <!-- tab bar -->
+  <nav class="tabbar">
+    <button class="tab on" data-s="home"><svg viewBox="0 0 24 24"><rect x="5" y="3.5" width="14" height="17" rx="2.5"/><path d="M9 15c1.2-2.2 4.8-2.2 6 0M9.6 9.8h.01M14.4 9.8h.01"/></svg><span>인연</span></button>
+    <button class="tab" data-s="fortune"><svg viewBox="0 0 24 24"><path d="M17.5 14.5A7.5 7.5 0 0 1 9.5 3a7.5 7.5 0 1 0 8 11.5z"/><path d="M17 4l.7 1.8L19.5 6.5l-1.8.7L17 9l-.7-1.8-1.8-.7 1.8-.7z"/></svg><span>운세</span></button>
+    <button class="tab" data-s="inbox"><span class="dot"><svg viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-9.3-9.2C1.2 7 3.6 4 6.8 4c2 0 3.7 1.1 5.2 3 1.5-1.9 3.2-3 5.2-3 3.2 0 5.6 3 4.1 6.8C19.5 15.4 12 20 12 20z"/></svg></span><span>관심</span></button>
+    <button class="tab" data-s="feed"><svg viewBox="0 0 24 24"><path d="M20 11.5c0 4-3.6 7-8 7-1 0-2-.15-2.9-.44L4 19.5l1.3-3.3A6.6 6.6 0 0 1 4 11.5c0-4 3.6-7 8-7s8 3 8 7z"/></svg><span>피드</span></button>
+    <button class="tab" data-s="my"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.7"/><path d="M5 20c.8-3.6 3.6-5.4 7-5.4s6.2 1.8 7 5.4"/></svg><span>마이</span></button>
+  </nav>
+
+  <!-- ═══ onboarding ═══ -->
+  <div class="onboard" id="onboard">
+    <!-- step 1 -->
+    <div class="ob-step on" id="ob1">
+      <div class="ob-mid">
+        <div class="ob-logo">연분<em>緣分 — 사주가 이어주는 인연</em></div>
+        <p class="ob-tag">얼굴 점수로 줄 세우지 않아요.<br>당신의 사주와 가장 잘 맞는<br>단 세 사람이 매일 자정에 도착해요.</p>
+        <div class="ob-proof">오늘 2,481쌍의 궁합이 이어졌어요</div>
+      </div>
+      <div class="ob-foot">
+        <div class="stepdots"><i class="on"></i><i></i><i></i></div>
+        <button class="btn primary" onclick="obGo(2)">전화번호로 시작하기</button>
+        <p class="note" style="text-align:center; margin-top:12px">PASS 본인인증으로 생년월일이 자동 등록돼요</p>
+      </div>
+    </div>
+    <!-- step 2 -->
+    <div class="ob-step" id="ob2">
+      <div class="ob-top">
+        <div class="passbox">✓ 본인인증 완료 — 1997년 12월 21일 · 남성</div>
+        <div class="ob-h">태어난 시간을<br>알려주세요</div>
+        <p class="ob-sub">시(時)까지 있으면 <b>정밀 궁합</b> 배지가 붙어요. 몰라도 괜찮아요 — 삼주 기준으로 궁합을 계산해요.</p>
+      </div>
+      <div class="timegrid" id="timegrid"></div>
+      <div class="ob-foot">
+        <div class="stepdots"><i></i><i class="on"></i><i></i></div>
+        <button class="btn primary" id="ob2-next" disabled style="opacity:.45" onclick="obGo(3)">다음</button>
+      </div>
+    </div>
+    <!-- step 3 -->
+    <div class="ob-step" id="ob3">
+      <div class="ob-mid">
+        <div class="ob-h" style="text-align:center">당신의 사주가<br>완성됐어요</div>
+        <div class="saju-card" style="margin-top:8px">
+          <div class="lbl" id="ob3-lbl">1997. 12. 21 · 축시생</div>
+          <div class="pillars">
+            <div class="pillar"><div class="t">시주</div><div class="h" id="ob3-hour">丁丑</div><div class="r" id="ob3-hour-r">정축</div></div>
+            <div class="pillar"><div class="t">일주</div><div class="h acc">庚午</div><div class="r">경오</div></div>
+            <div class="pillar"><div class="t">월주</div><div class="h">壬子</div><div class="r">임자</div></div>
+            <div class="pillar"><div class="t">연주</div><div class="h">丁丑</div><div class="r">정축</div></div>
+          </div>
+          <p style="font-size:.88rem; color:var(--muted); margin:0; line-height:1.75">일간 <b style="color:var(--accent-deep)">경금(庚金)</b> — 흔들리지 않는 무쇠의 기운.<br>물(水)을 품은 인연을 만나면 비로소 빛나요.</p>
+        </div>
+      </div>
+      <div class="ob-foot">
+        <div class="stepdots"><i></i><i></i><i class="on"></i></div>
+        <button class="btn primary" onclick="obDone()">잘 맞는 인연 보러 가기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- sheet & toast -->
+  <div class="backdrop" id="backdrop" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
+  <div class="toast" id="toastEl"></div>
+</div>
+<p class="page-cap">연분 緣分 · 인터랙티브 프로토타입 — 온보딩부터 눌러보며 흐름을 확인하세요</p>
+
+<script>
+(function(){
+  'use strict';
+  var state = { coins: 420, deck: 0, seenDetail: {}, fortuneDone: false, blurDone: false, extraUsed: false };
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ── profiles (mock) ── */
+  var profiles = [
+    { nm:'소연', age:27, job:'플로리스트', dist:'8.2km', score:87, pct:'상위 3%', init:'소',
+      g:'linear-gradient(150deg,#4E6E8E,#8FB0C9)',
+      line:'마른 무쇠를 적시는 물의 합 — 임수 일간',
+      tags:['정밀 궁합','결혼 의향도 있어요','반려식물','주말 등산'],
+      el:[92,85,78,88,74],
+      read:'회원님의 경금(庚金)은 단단하지만 외로운 금속이에요. 소연님의 임수(壬水)는 그 금속을 씻어 빛나게 하는 큰 물입니다. 오행에서 금생수(金生水)의 상생 — 회원님이 주는 만큼 상대가 커지고, 상대의 유연함이 회원님의 완고함을 부드럽게 풀어줍니다. 지지의 오(午)-자(子) 충은 초반 티키타카가 격할 수 있다는 뜻이지만, 월지가 이를 중재해 "싸우며 정드는" 구조에 가깝습니다.' },
+    { nm:'다인', age:29, job:'마케터', dist:'14.6km', score:82, pct:'상위 8%', init:'다',
+      g:'linear-gradient(150deg,#7E5A44,#C9A227)',
+      line:'흙이 금을 낳는 토생금의 합 — 무토 일간',
+      tags:['정확도 75%','일단 연애부터','맛집 투어','전시 관람'],
+      el:[84,80,88,72,79],
+      read:'다인님의 무토(戊土)는 산처럼 넉넉한 흙 — 토생금(土生金)으로 회원님을 만들어내는 기운입니다. 받는 쪽이 회원님이라 편안함을 느끼기 쉬운 합이에요. 다만 다인님의 출생시간이 미상이라 시주 궁합은 추정치입니다. 상대가 시간을 등록하면 정밀 궁합으로 갱신돼요.' },
+    { nm:'하람', age:26, job:'초등교사', dist:'21.3km', score:79, pct:'상위 12%', init:'하',
+      g:'linear-gradient(150deg,#5E7250,#9DB08A)',
+      line:'금극목, 다듬으며 자라는 합 — 을목 일간',
+      tags:['정밀 궁합','진지한 연애','고양이 집사','홈카페'],
+      el:[70,82,75,85,81],
+      read:'을목(乙木)은 덩굴처럼 유연한 나무. 경금이 을목을 만나면 금극목(金克木)의 극이지만, 명리에서 을경합(乙庚合)은 대표적인 천간합 — 서로를 길들이며 하나가 되는 합으로 봅니다. 극이 곧 흉이 아니라는 걸 보여주는 관계로, 주도권 균형만 잡히면 오래 가는 짝입니다.' }
+  ];
+  var elNames = ['오행 상생','일간 궁합','지지 합·충','띠 궁합','음양 균형'];
+
+  /* ── coins ── */
+  function setCoins(v){ state.coins = v; $('coin').textContent = v; $('coin2').textContent = v; }
+
+  /* ── toast ── */
+  var toastTimer;
+  window.toast = function(msg){
+    var t = $('toastEl'); t.textContent = msg; t.classList.add('on');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function(){ t.classList.remove('on'); }, 2200);
+  };
+
+  /* ── sheet ── */
+  window.closeSheet = function(){ $('sheet').classList.remove('on'); $('backdrop').classList.remove('on'); };
+  function openSheet(html){ $('sheet').innerHTML = '<div class="grab"></div>' + html; $('sheet').classList.add('on'); $('backdrop').classList.add('on'); }
+
+  /* ── spend flow ── */
+  var pendingOk = null;
+  window._confirmSpend = function(cost){ closeSheet(); setCoins(state.coins - cost); if (pendingOk) { var f = pendingOk; pendingOk = null; f(); } };
+  function spend(cost, title, desc, okLabel, onOk){
+    if (state.coins < cost) {
+      openSheet('<h3>엽전이 부족해요</h3><p class="desc">보유 엽전 '+state.coins+'개 · 필요 '+cost+'개.<br>오늘의 운세를 확인하면 매일 5개를 모을 수 있어요.</p>'
+        + '<button class="btn primary" onclick="closeSheet();storeSheet()">스토어에서 충전하기</button>');
+      return;
+    }
+    pendingOk = onOk;
+    openSheet('<h3>'+title+'</h3><p class="desc">'+desc+'</p>'
+      + '<div class="row2"><button class="btn ghost" onclick="closeSheet()">다음에</button>'
+      + '<button class="btn primary" onclick="_confirmSpend('+cost+')">'+okLabel+' <span class="cost">엽전 '+cost+'</span></button></div>');
+  }
+
+  /* ── store ── */
+  window.storeSheet = function(){
+    openSheet('<h3>스토어</h3><p class="desc">보유 엽전 <b style="color:var(--coin)">'+state.coins+'</b>개 · 구매 7일 내 미사용분만 환불돼요</p>'
+      + [[100,'₩4,900',''],[220,'₩9,900',''],[600,'₩24,900','HOT'],[1600,'₩59,000',''],[4000,'₩129,000','BEST']].map(function(r){
+          return '<div class="storeline"><span class="n">엽전 '+r[0].toLocaleString()+(r[2]?' <span class="chip acc">'+r[2]+'</span>':'')+'</span><span class="p">'+r[1]+'</span></div>';
+        }).join('')
+      + '<p class="note" style="margin-top:12px">결제는 프로토타입에서 동작하지 않아요</p>');
+  };
+  $('coinpill').addEventListener('click', storeSheet);
+
+  /* ── tabs ── */
+  var titles = { home:null, fortune:'운세', inbox:'관심함', feed:'피드', my:'마이' };
+  var tabs = document.querySelectorAll('.tab');
+  tabs.forEach(function(tab){
+    tab.addEventListener('click', function(){
+      tabs.forEach(function(t){ t.classList.remove('on'); });
+      tab.classList.add('on');
+      document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('on'); });
+      var name = tab.getAttribute('data-s');
+      $('s-'+name).classList.add('on');
+      var tt = $('tb-title');
+      if (titles[name]) { tt.className = 'screen-title'; tt.innerHTML = titles[name]; }
+      else { tt.className = 'brand'; tt.innerHTML = '연분<small>緣分</small>'; }
+    });
+  });
+
+  /* ── home deck ── */
+  function elemBars(p){
+    return p.el.map(function(v,i){
+      return '<div class="elem"><div class="l"><span>'+elNames[i]+'</span><span>'+v+'</span></div><div class="bar"><i style="width:'+v+'%"></i></div></div>';
+    }).join('');
+  }
+  window.showDetail = function(idx){
+    var p = profiles[idx];
+    function show(){
+      openSheet('<h3>'+p.nm+'님과의 궁합 — '+p.score+'점</h3><p class="desc">'+p.line+'</p>'
+        + elemBars(p) + '<p class="desc" style="margin-top:14px">'+p.read+'</p>'
+        + '<button class="btn primary" onclick="closeSheet();sendSignal('+idx+')">이대로 신호 보내기 <span class="cost">엽전 50</span></button>');
+    }
+    if (state.seenDetail[idx]) { show(); return; }
+    spend(30, '상세 궁합 풀이', p.nm+'님과의 5요소 궁합과 관계 풀이를 확인해요. 한 번 열람하면 계속 무료로 볼 수 있어요.', '풀이 보기', function(){
+      state.seenDetail[idx] = true; toast('엽전 30개를 사용했어요'); show();
+    });
+  };
+  window.sendSignal = function(idx){
+    var p = profiles[idx];
+    spend(50, '인연 신호 보내기', p.nm+'님에게 궁합 '+p.score+'점과 함께 신호를 보내요. 상대가 수락하면 채팅이 열려요.', '신호 보내기', function(){
+      toast(p.nm+'님에게 신호를 보냈어요 · 엽전 -50');
+      nextCard();
+    });
+  };
+  window.passCard = function(){ nextCard(); };
+  function nextCard(){ state.deck += 1; renderDeck(); }
+  window.moreDeck = function(){
+    spend(20, '오늘의 인연 추가 열람', '새로운 인연 3명을 더 추천받아요.', '추가 열람', function(){
+      state.deck = 0; state.extraUsed = true; state.seenDetail = {}; toast('새로운 인연이 도착했어요 · 엽전 -20'); renderDeck();
+    });
+  };
+  function renderDeck(){
+    var d = $('deck');
+    if (state.deck >= profiles.length) {
+      $('deck-count').textContent = '오늘의 추천 완료';
+      d.innerHTML = '<div class="deck-empty"><div style="font-size:2.2rem; margin-bottom:10px">🪢</div>'
+        + '<div class="big">오늘의 인연을 모두 확인했어요</div>'
+        + '<p class="note" style="margin-bottom:18px">새 인연은 매일 자정에 도착해요.<br>기다리는 동안 오늘의 운세로 엽전을 모아보세요.</p>'
+        + '<button class="btn primary" onclick="moreDeck()">인연 3명 더 보기 <span class="cost">엽전 20</span></button>'
+        + '<div style="height:10px"></div><button class="btn ghost" onclick="document.querySelector(\'[data-s=fortune]\').click()">운세 보러 가기</button></div>';
+      return;
+    }
+    var p = profiles[state.deck];
+    $('deck-count').textContent = (state.deck+1)+' / 3 · 자정에 새로 도착';
+    d.innerHTML = '<div class="pcard card-anim">'
+      + '<div class="photo" style="background:'+p.g+'"><div class="face">'+p.init+'</div><div class="shade"></div>'
+      +   '<div class="info"><div><div class="nm">'+p.nm+', '+p.age+'</div><div class="sub">'+p.job+' · '+p.dist+'</div></div>'
+      +   '<div class="ring" style="--p:'+p.score+'"><div><b>'+p.score+'</b><i>'+p.pct+'</i></div></div></div></div>'
+      + '<div class="gung-line"><span class="k">궁합</span><span class="v">'+p.line+'</span></div>'
+      + '<div class="tagrow">'+p.tags.map(function(t,i){ return '<span class="chip '+(i===0?(t==='정밀 궁합'?'good':'mut'):'mut')+'">'+t+'</span>'; }).join('')+'</div>'
+      + '</div>'
+      + '<div class="actions">'
+      + '<button class="pass" aria-label="패스" onclick="passCard()">✕</button>'
+      + '<button class="btn ghost" onclick="showDetail('+state.deck+')">상세 풀이 <span class="cost">30</span></button>'
+      + '<button class="btn primary" onclick="sendSignal('+state.deck+')">신호 보내기 <span class="cost">50</span></button>'
+      + '</div>';
+  }
+
+  /* ── fortune ── */
+  $('f-btn').addEventListener('click', function(){
+    if (state.fortuneDone) { toast('오늘은 이미 확인했어요 — 내일 다시 만나요'); return; }
+    state.fortuneDone = true;
+    setCoins(state.coins + 5);
+    $('f-head').textContent = '금(金) 기운이 맑은 날';
+    $('f-body').innerHTML = '오늘은 일간 경금이 힘을 받는 날. 미뤄둔 연락을 먼저 건네면 뜻밖의 답이 돌아옵니다. <b>서쪽 방향</b>의 인연에 길한 기운 — 오후 5~7시(유시)가 가장 밝아요.';
+    this.textContent = '✓ 오늘의 운세 확인 완료';
+    toast('엽전 5개를 받았어요');
+  });
+  window.weeklyDetail = function(){
+    spend(30, '이번 주 연애운 상세', '요일별 흐름, 길한 방향과 시간대, 피해야 할 날까지 — 이번 주 전체 풀이를 확인해요.', '풀이 보기', function(){
+      toast('엽전 30개를 사용했어요');
+      openSheet('<h3>이번 주 연애운</h3><p class="desc">금 기운이 차오르는 한 주. 특히 <b>수요일</b>과 <b>금요일</b>, 물(水) 기운의 상대와 대화가 깊어집니다. 토요일은 오화(午火)가 강해 다툼 조심 — 약속은 일요일 낮으로 미루는 편이 길해요. 새 인연에게 먼저 신호를 보내기 가장 좋은 날은 <b>목요일 저녁</b>입니다.</p>'
+        + '<button class="btn primary" onclick="closeSheet()">확인</button>');
+    });
+  };
+
+  /* ── inbox ── */
+  window.connectSignal = function(btn){
+    btn.textContent = '연결됨 ✓'; btn.disabled = true; btn.style.opacity = .6;
+    toast('서윤님과 연결됐어요 — 채팅이 열렸어요');
+  };
+  window.unblur = function(){
+    if (state.blurDone) return;
+    spend(60, '조회한 인연 확인', '상위 1% 궁합(92점)의 인연이 누구인지 확인해요.', '확인하기', function(){
+      state.blurDone = true;
+      toast('엽전 60개를 사용했어요');
+      $('teaser').innerHTML = '<div style="display:flex; align-items:center; gap:13px;">'
+        + '<div class="ava" style="background:linear-gradient(140deg,#B93359,#E08A5C)"><span>하</span></div>'
+        + '<div style="flex:1"><div class="tt">하늘, 31 <span class="chip good">궁합 92 · 정밀</span></div>'
+        + '<div class="ds" style="font-size:.78rem;color:var(--muted);margin-top:3px">회사원 · 경기 수원시 · 계수 일간</div></div>'
+        + '<button class="btn primary small" onclick="toast(\'하늘님에게 신호를 보내려면 홈에서 프로필을 확인하세요\')">프로필</button></div>';
+    });
+  };
+  window.passSheet = function(){
+    openSheet('<h3>나를 조회한 사람</h3><p class="desc">전체 목록은 <b>연분 패스</b> 구독자에게 공개돼요.<br>궁합 상세 무제한 · 조회자 전체 공개 · 매월 엽전 300</p>'
+      + '<button class="btn primary" onclick="closeSheet();toast(\'구독 결제 흐름 (프로토타입)\')">월 ₩14,900으로 시작</button>');
+  };
+
+  /* ── onboarding ── */
+  var hours = [['자시','23–01','壬子','임자'],['축시','01–03','丁丑','정축'],['인시','03–05','戊寅','무인'],
+               ['묘시','05–07','己卯','기묘'],['진시','07–09','庚辰','경진'],['사시','09–11','辛巳','신사'],
+               ['오시','11–13','壬午','임오'],['미시','13–15','癸未','계미'],['신시','15–17','甲申','갑신'],
+               ['유시','17–19','乙酉','을유'],['술시','19–21','丙戌','병술'],['해시','21–23','丁亥','정해']];
+  var tg = $('timegrid');
+  hours.forEach(function(h, i){
+    var b = document.createElement('button');
+    b.className = 'tg'; b.innerHTML = '<b>'+h[0]+'</b><small>'+h[1]+'시</small>';
+    b.addEventListener('click', function(){ selectTime(i, b); });
+    tg.appendChild(b);
+  });
+  var unk = document.createElement('button');
+  unk.className = 'tg unknown'; unk.innerHTML = '<b>태어난 시간을 몰라요</b><small>삼주 기준 · 정확도 75%로 계산돼요</small>';
+  unk.addEventListener('click', function(){ selectTime(-1, unk); });
+  tg.appendChild(unk);
+
+  var chosen = null;
+  function selectTime(i, btn){
+    chosen = i;
+    tg.querySelectorAll('.tg').forEach(function(x){ x.classList.remove('sel'); });
+    btn.classList.add('sel');
+    var nx = $('ob2-next'); nx.disabled = false; nx.style.opacity = 1;
+  }
+  window.obGo = function(n){
+    if (n === 3) {
+      if (chosen === null) return;
+      if (chosen === -1) {
+        $('ob3-lbl').textContent = '1997. 12. 21 · 시간 미상 (정확도 75%)';
+        $('ob3-hour').textContent = '未知'; $('ob3-hour-r').textContent = '미상';
+      } else {
+        $('ob3-lbl').textContent = '1997. 12. 21 · ' + hours[chosen][0] + '생';
+        $('ob3-hour').textContent = hours[chosen][2]; $('ob3-hour-r').textContent = hours[chosen][3];
+      }
+    }
+    document.querySelectorAll('.ob-step').forEach(function(s){ s.classList.remove('on'); });
+    $('ob'+n).classList.add('on');
+  };
+  window.obDone = function(){
+    $('onboard').style.display = 'none';
+    toast('가입 완료 — 첫 인연 3명이 도착했어요');
+  };
+
+  renderDeck();
+})();
+</script>
