@@ -28,6 +28,20 @@ const p2 = fourPillars(1998, 1, 15, null);
 eq('1998-01-15 연주(입춘 전)', pillarKo(p2.year), '정축');
 eq('1998-01-15 월주(소한 후)', pillarKo(p2.month), '계축');
 
+// ── 절기 경계: 정밀 시각 기반 (2024 입춘 = 2/4 17:27 KST) ──
+// 같은 날이라도 입춘 시각 전후로 연주가 갈린다
+eq('2024-02-04 미시(14시) 연주', pillarKo(fourPillars(2024, 2, 4, 7).year), '계묘');   // 입춘 전
+eq('2024-02-04 유시(18시) 연주', pillarKo(fourPillars(2024, 2, 4, 9).year), '갑진');   // 입춘 후
+eq('2024-02-04 미시 월주(축월)', pillarKo(fourPillars(2024, 2, 4, 7).month), '을축');
+eq('2024-02-04 유시 월주(인월)', pillarKo(fourPillars(2024, 2, 4, 9).month), '병인');
+eq('2024-01-10 월주(소한 후 축월)', pillarKo(fourPillars(2024, 1, 10, null).month), '을축');
+eq('2023-12-25 월주(대설 후 자월)', pillarKo(fourPillars(2023, 12, 25, null).month), '갑자');
+// 경계 플래그: 입춘 당일 시간 미상 → 안내, 경계에서 먼 날은 미표시
+console.log(`${fourPillars(2024, 2, 4, null).boundaryBirth ? '✓' : '✗ FAIL'} 2024-02-04 시간미상 → 경계 플래그 on`);
+if (!fourPillars(2024, 2, 4, null).boundaryBirth) failed++;
+console.log(`${!fourPillars(2024, 2, 20, 5).boundaryBirth ? '✓' : '✗ FAIL'} 2024-02-20 → 경계 플래그 off`);
+if (fourPillars(2024, 2, 20, 5).boundaryBirth) failed++;
+
 // ── 궁합: 결정론 + 범위 확인 ──
 const a = fourPillars(1997, 12, 21, 1);
 const b = fourPillars(1999, 3, 8, 6);
