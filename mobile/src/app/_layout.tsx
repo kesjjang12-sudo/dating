@@ -2,7 +2,7 @@ import { Hahmlet_600SemiBold, Hahmlet_700Bold, useFonts } from '@expo-google-fon
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { Toast } from '../components/Toast';
 import * as Location from 'expo-location';
 import { fetchRemotePosts, fetchRemoteProfiles } from '../lib/data/remote';
@@ -14,6 +14,12 @@ export default function RootLayout() {
   const [loaded, fontError] = useFonts({ Hahmlet_600SemiBold, Hahmlet_700Bold });
 
   useEffect(() => {
+    // 모바일 브라우저: 주소창/키보드로 실제 표시 영역이 100vh보다 작아져 하단이 잘리는 문제 — 동적 뷰포트(dvh)로 고정
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const st = document.createElement('style');
+      st.textContent = '@supports (height: 100dvh) { html, body, #root { height: 100dvh !important; } }';
+      document.head.appendChild(st);
+    }
     (async () => {
       const [profiles, posts] = await Promise.all([fetchRemoteProfiles(), fetchRemotePosts()]);
       if (profiles || posts) useApp.getState().applyRemote(profiles, posts);

@@ -66,7 +66,7 @@ export default function Onboarding() {
           )}
 
           {step === 2 && (
-            <View style={{ flex: 1 }}>
+            <View>
               <View style={s.passbox}>
                 <Text style={s.passTxt}>PASS 본인인증 (데모 — 직접 입력해 주세요)</Text>
               </View>
@@ -98,7 +98,7 @@ export default function Onboarding() {
           )}
 
           {step === 3 && (
-            <View style={{ flex: 1 }}>
+            <View>
               <Text style={s.h}>태어난 시간을{'\n'}알려주세요</Text>
               <Text style={s.sub}>
                 시(時)까지 있으면 <Text style={{ fontWeight: '700', color: C.ink }}>정밀 궁합</Text> 배지가 붙어요. 몰라도 괜찮아요 — 삼주 기준으로 궁합을 계산해요.
@@ -152,7 +152,7 @@ export default function Onboarding() {
 }
 
 const s = StyleSheet.create({
-  wrap: { flexGrow: 1, padding: 24, paddingBottom: 8 },
+  wrap: { flexGrow: 1, padding: 24, paddingBottom: 24 },
   mid: { flex: 1, justifyContent: 'center' },
   logo: { fontFamily: F.serifBold, fontSize: 52, color: C.ink },
   logoSub: { fontFamily: F.serif, fontSize: 17, color: C.accent, marginTop: 6 },
