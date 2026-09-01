@@ -9,7 +9,7 @@ import { useApp } from '../lib/store';
 import { C } from '../lib/theme';
 
 export default function RootLayout() {
-  const [loaded] = useFonts({ Hahmlet_600SemiBold, Hahmlet_700Bold });
+  const [loaded, fontError] = useFonts({ Hahmlet_600SemiBold, Hahmlet_700Bold });
 
   useEffect(() => {
     (async () => {
@@ -18,7 +18,7 @@ export default function RootLayout() {
     })();
   }, []);
 
-  if (!loaded) return null;
+  if (!loaded && !fontError) return null; // 폰트 실패 시 시스템 폰트로 진행
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
       <StatusBar style="dark" />
