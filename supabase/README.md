@@ -1,7 +1,11 @@
 # 연분 백엔드 (Supabase)
 
 > **현재 연결된 프로젝트**: `yeonbun` (ref `nmwdqycqlavfinecoljn`, 서울 ap-northeast-2, "dating" 조직, 무료 플랜)
-> 스키마 0001·0002 적용 완료, 시드 12명 + 피드 글 입력 완료. 키는 `mobile/.env`(git 제외)에 있음.
+> 스키마 0001~0004 적용 완료, 시드 12명 + 피드 글 입력, **Anonymous sign-ins 활성화됨**.
+> 계정 동기화(익명 로그인→프로필/지갑 생성→원장 RPC→봇 트리거) 전 구간 라이브 검증 완료.
+> 웹 배포: https://kesjjang12-sudo.github.io/dating/ (mobile/ 푸시 시 Actions 자동 재배포)
+>
+> 알려진 갭: 관심함의 "받은 신호 연결하기"는 아직 로컬 전용(봇의 수신 신호가 서버에 없음) — 실유저 간 신호가 생기는 P1에서 자연 해소.
 >
 > ⚠️ Claude 원격 작업 환경에 옛 프로젝트의 `EXPO_PUBLIC_SUPABASE_URL`(hhjmhdx…)이 환경변수로 남아 있어
 > `.env`보다 우선 적용된다. 그 환경에서 빌드할 때는 값을 명시로 덮어쓸 것:
@@ -43,7 +47,7 @@
 
 ## 남은 서버 작업 (P1 이관 시)
 
-- [ ] 인증: 전화번호 OTP(Twilio) 또는 익명 로그인(대시보드에서 Anonymous sign-ins 활성화) + PASS 연동
+- [x] 익명 로그인 + 서버 지갑/신호/채팅 (2026-09-01) — 전화번호 OTP(Twilio)·PASS 연동은 남음
 - [ ] Edge Function: `spend`(원장 기입 + 신호/열람 처리), `daily-fortune-claim`(중복 방지)
 - [ ] Realtime: `messages` 테이블 구독으로 실시간 채팅
 - [ ] Storage: 프로필 사진 버킷 + 검수 큐
