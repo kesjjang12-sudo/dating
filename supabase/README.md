@@ -1,5 +1,13 @@
 # 연분 백엔드 (Supabase)
 
+> **현재 연결된 프로젝트**: `yeonbun` (ref `nmwdqycqlavfinecoljn`, 서울 ap-northeast-2, "dating" 조직, 무료 플랜)
+> 스키마 0001·0002 적용 완료, 시드 12명 + 피드 글 입력 완료. 키는 `mobile/.env`(git 제외)에 있음.
+>
+> ⚠️ Claude 원격 작업 환경에 옛 프로젝트의 `EXPO_PUBLIC_SUPABASE_URL`(hhjmhdx…)이 환경변수로 남아 있어
+> `.env`보다 우선 적용된다. 그 환경에서 빌드할 때는 값을 명시로 덮어쓸 것:
+> `EXPO_PUBLIC_SUPABASE_URL=… EXPO_PUBLIC_SUPABASE_KEY=… npx expo export --clear`
+> (또는 claude.ai 환경 설정에서 해당 변수를 새 프로젝트 값으로 갱신/삭제)
+
 앱은 Supabase 연동 코드가 내장돼 있고, **키가 없으면 자동으로 로컬 시드로 폴백**한다.
 연결되면: 프로필(오늘의 인연 후보)·피드를 서버에서 불러오고, 데모 글쓰기가 서버에 기록된다.
 마이 탭 → "데이터 소스"에서 연결 상태를 확인할 수 있다.

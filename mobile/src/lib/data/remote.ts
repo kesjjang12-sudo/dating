@@ -1,7 +1,7 @@
 // 원격 데이터 레이어 — Supabase에서 프로필·피드를 가져온다.
 // 실패하면 null을 돌려주고 앱은 로컬 시드로 계속 동작한다 (store를 import하지 않는다 — 순환 방지).
 
-import { supabase } from '../supabase';
+import { getSupabase } from '../supabase';
 import { FeedPost, SeedProfile } from './profiles';
 
 const TIMEOUT_MS = 5000;
@@ -50,6 +50,7 @@ function rowToProfile(r: ProfileRow): SeedProfile {
 }
 
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
+  const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data, error } = await withTimeout(
@@ -78,6 +79,7 @@ interface PostRow {
 }
 
 export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
+  const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data, error } = await withTimeout(
@@ -104,6 +106,7 @@ export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
 
 /** 데모 글쓰기(비인증) — posts_insert_demo 정책 필요. 실패해도 앱은 로컬로 유지 */
 export async function submitRemotePost(cat: string, title: string, body: string): Promise<boolean> {
+  const supabase = getSupabase();
   if (!supabase) return false;
   try {
     const { error } = await withTimeout(
