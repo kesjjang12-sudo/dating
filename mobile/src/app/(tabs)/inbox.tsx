@@ -9,7 +9,7 @@ import { Header } from '../../components/Header';
 import { useSpend } from '../../components/SpendFlow';
 import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip, Sect } from '../../components/ui';
-import { SEED_PROFILES } from '../../lib/data/profiles';
+import { getProfiles } from '../../lib/data/registry';
 import { COST, PASS_PRICE } from '../../lib/economy';
 import { compatWith, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
@@ -26,21 +26,22 @@ export default function Inbox() {
   const sendSignal = useApp((st) => st.sendSignal);
   const sentSignals = useApp((st) => st.sentSignals);
   const showToast = useApp((st) => st.showToast);
+  const remoteReady = useApp((st) => st.remoteReady);
   const { requestSpend, spendUI } = useSpend();
   const [passOpen, setPassOpen] = useState(false);
 
   const incoming = useMemo(
-    () => (user ? SEED_PROFILES.filter((p) => p.sentSignal && p.gender !== user.gender) : []),
-    [user]
+    () => (user ? getProfiles().filter((p) => p.sentSignal && p.gender !== user.gender) : []),
+    [user, remoteReady]
   );
   const viewer = useMemo(() => {
     if (!user) return null;
-    const vs = SEED_PROFILES.filter((p) => p.viewedMe && p.gender !== user.gender);
+    const vs = getProfiles().filter((p) => p.viewedMe && p.gender !== user.gender);
     return vs.sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total)[0] ?? null;
-  }, [user]);
+  }, [user, remoteReady]);
   const viewerCount = useMemo(
-    () => (user ? SEED_PROFILES.filter((p) => p.viewedMe && p.gender !== user.gender).length + 8 : 0),
-    [user]
+    () => (user ? getProfiles().filter((p) => p.viewedMe && p.gender !== user.gender).length + 8 : 0),
+    [user, remoteReady]
   );
 
   if (!user) return null;

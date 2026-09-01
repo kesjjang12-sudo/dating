@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# Supabase 키 (publishable만 쓰더라도 습관적으로 제외)
+.env

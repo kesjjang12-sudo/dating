@@ -19,6 +19,7 @@ export default function My() {
   const user = useApp((st) => st.user);
   const coins = useApp((st) => st.coins);
   const streak = useApp((st) => st.streak);
+  const remoteReady = useApp((st) => st.remoteReady);
   const editHour = useApp((st) => st.editHour);
   const resetAll = useApp((st) => st.resetAll);
   const showToast = useApp((st) => st.showToast);
@@ -38,6 +39,10 @@ export default function My() {
     { label: '미션', right: `연속 출석 ${streak}일`, onPress: () => setMissionOpen(true) },
     { label: '내 사주 정보', right: `${user.hourBranch === null ? '시간 미상' : BRANCHES_KO[user.hourBranch] + '시'} · 수정 ${2 - user.hourEdits}회 남음`, onPress: () => setSajuOpen(true) },
     { label: '지인 차단', right: '켜짐', onPress: () => showToast('연락처 기반 지인 차단 (데모)') },
+    {
+      label: '데이터 소스', right: remoteReady ? 'Supabase 연결됨' : '로컬 시드',
+      onPress: () => showToast(remoteReady ? '프로필·피드를 Supabase에서 불러왔어요' : 'Supabase 미연결 — 로컬 시드로 동작 중이에요 (mobile/.env 설정 필요)'),
+    },
     { label: '데모 초기화', right: '처음부터', onPress: () => setResetOpen(true) },
   ];
 

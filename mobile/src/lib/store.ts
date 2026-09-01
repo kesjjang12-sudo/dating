@@ -4,7 +4,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
-import { FeedPost, SEED_POSTS, SEED_PROFILES, SeedProfile } from './data/profiles';
+import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
+import { getProfiles, setProfiles } from './data/registry';
+import { submitRemotePost } from './data/remote';
 import { EARN, START_COINS } from './economy';
 import { compatibility, CompatResult } from './saju/compat';
 import { daysFromEpoch, fromDateString, FourPillars } from './saju/manseryeok';
@@ -43,6 +45,7 @@ interface AppState {
 
   posts: FeedPost[];
   toast: { msg: string; ts: number } | null;
+  remoteReady: boolean; // Supabase에서 프로필/피드를 받아왔는지 (미영속)
 
   completeOnboarding: (u: Omit<UserInfo, 'hourEdits'>) => void;
   ensureDeck: () => void;
@@ -60,6 +63,7 @@ interface AppState {
   unlockWeekly: () => void;
   sendMessage: (id: string, text: string) => void;
   receiveReply: (id: string) => void;
+  applyRemote: (profiles: SeedProfile[] | null, posts: FeedPost[] | null) => void;
   addPost: (cat: string, title: string, body: string) => void;
   toggleLike: (id: string) => void;
   editHour: (hourBranch: number | null) => boolean;
@@ -78,7 +82,7 @@ const weekKey = (): string => {
   return `${d.getFullYear()}-W${Math.floor(daysFromEpoch(d.getFullYear(), d.getMonth() + 1, d.getDate()) / 7)}`;
 };
 
-export const profileById = (id: string): SeedProfile => SEED_PROFILES.find((p) => p.id === id)!;
+export const profileById = (id: string): SeedProfile => getProfiles().find((p) => p.id === id)!;
 
 /** 사용자 사주 (없으면 null) */
 export function myPillars(user: UserInfo | null): FourPillars | null {
@@ -100,7 +104,7 @@ export function compatWith(user: UserInfo, profileId: string): CompatResult {
 
 /** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다" */
 function buildDeck(user: UserInfo, exclude: Set<string>): string[] {
-  const candidates = SEED_PROFILES
+  const candidates = getProfiles()
     .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal)
     .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total);
   if (candidates.length === 0) return [];
@@ -133,6 +137,19 @@ export const useApp = create<AppState>()(
       weeklyKey: null,
       posts: SEED_POSTS,
       toast: null,
+      remoteReady: false,
+
+      applyRemote: (profiles, posts) => {
+        if (profiles) {
+          setProfiles(profiles);
+          compatCache.clear();
+        }
+        if (posts) {
+          const mine = get().posts.filter((p) => p.mine);
+          set({ posts: [...mine, ...posts] });
+        }
+        if (profiles || posts) set({ remoteReady: true });
+      },
 
       completeOnboarding: (u) => {
         const user: UserInfo = { ...u, hourEdits: 0 };
@@ -239,6 +256,7 @@ export const useApp = create<AppState>()(
           likes: 0, comments: 0, views: 1, timeLabel: '지금 막', mine: true,
         };
         set({ posts: [post, ...get().posts] });
+        void submitRemotePost(cat, title, body); // 서버 기록은 best-effort — 실패해도 로컬 유지
       },
 
       toggleLike: (id) =>
@@ -267,14 +285,14 @@ export const useApp = create<AppState>()(
           deckDate: '', deckIds: [], deckPos: 0,
           unlockedDetails: {}, passed: {}, sentSignals: {}, incomingHandled: {},
           blurUnlocked: false, matches: [], chats: {}, replyIdx: {},
-          fortuneDate: null, streak: 0, weeklyKey: null, posts: SEED_POSTS, toast: null,
+          fortuneDate: null, streak: 0, weeklyKey: null, posts: SEED_POSTS, toast: null, remoteReady: false,
         });
       },
     }),
     {
       name: 'yeonbun-app',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ toast, ...rest }) => rest,
+      partialize: ({ toast, remoteReady, ...rest }) => rest,
     }
   )
 );
