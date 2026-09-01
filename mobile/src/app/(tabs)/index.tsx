@@ -173,6 +173,8 @@ export default function Home() {
             <SheetDesc>{detail.c.headline}</SheetDesc>
             <ElemBars parts={detail.c.parts} />
             <SheetDesc>{detail.c.reading}</SheetDesc>
+            <Btn label="전체 풀이 보기 — 명식·기질·결혼운·대운" kind="ghost" onPress={() => { const pid = detail.p.id; setDetailId(null); setTimeout(() => router.push({ pathname: "/compat/[id]", params: { id: pid } }), 250); }} />
+            <View style={{ height: 8 }} />
             <Btn label="이대로 신호 보내기" cost={COST.signal} onPress={() => { const pid = detail.p.id; setDetailId(null); setTimeout(() => doSignal(pid), 250); }} />
           </>
         )}

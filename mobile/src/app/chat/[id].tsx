@@ -104,7 +104,9 @@ export default function Chat() {
           <Text style={s.nm}>{p.name}</Text>
           <Text style={s.sub}>{p.job}{live ? ' · 실시간' : ''}{reveal?.revealed ? ' · 얼굴 공개됨' : ''}</Text>
         </View>
-        <Chip label={`궁합 ${c.total}`} tone="good" />
+        <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id } })} hitSlop={8}>
+          <Chip label={`궁합 ${c.total} ›`} tone="good" />
+        </Pressable>
       </View>
 
       {live && reveal && !reveal.revealed && (
