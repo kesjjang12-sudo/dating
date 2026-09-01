@@ -1,7 +1,7 @@
 // 관심함 — 받은 신호, 블러 티저(상위 궁합 조회자), 조회자 목록(구독 유도), 내 매칭
 
-import { router } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
@@ -34,9 +34,10 @@ export default function Inbox() {
   const [passOpen, setPassOpen] = useState(false);
   const [srvIncoming, setSrvIncoming] = useState<IncomingSignal[]>([]);
 
-  useEffect(() => {
+  // 탭에 들어올 때마다 수신 신호 재조회 — 상대가 방금 보낸 신호가 바로 보이도록
+  useFocusEffect(useCallback(() => {
     if (serverMode) void fetchIncomingSignals().then(setSrvIncoming);
-  }, [serverMode]);
+  }, [serverMode]));
 
   const incoming = useMemo(
     () => (user ? getProfiles().filter((p) => p.sentSignal && p.gender !== user.gender) : []),
