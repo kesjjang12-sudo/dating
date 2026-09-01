@@ -166,6 +166,7 @@ const s = StyleSheet.create({
   input: {
     backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line2, borderRadius: 11,
     paddingHorizontal: 14, paddingVertical: 12, fontSize: 15.5, color: C.ink,
+    minWidth: 0, // 웹 <input> 고유 너비가 flex 축소를 막아 생년월일 3칸이 가로로 넘치는 것 방지
   },
   err: { color: C.accentDeep, fontSize: 12.5, marginTop: 8 },
   genBtn: { flex: 1, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line2, borderRadius: 11, paddingVertical: 12, alignItems: 'center' },

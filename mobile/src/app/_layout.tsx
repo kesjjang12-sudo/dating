@@ -17,8 +17,12 @@ export default function RootLayout() {
     // 모바일 브라우저: 주소창/키보드로 실제 표시 영역이 100vh보다 작아져 하단이 잘리는 문제 — 동적 뷰포트(dvh)로 고정
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const st = document.createElement('style');
-      st.textContent = '@supports (height: 100dvh) { html, body, #root { height: 100dvh !important; } }';
+      st.textContent = '@supports (height: 100dvh) { html, body, #root { height: 100dvh !important; } } html { color-scheme: only light; }';
       document.head.appendChild(st);
+      // 안드로이드 크롬 자동 다크모드가 라이트 전용 팔레트를 반전시키지 않도록
+      const meta = document.createElement('meta');
+      meta.name = 'color-scheme'; meta.content = 'only light';
+      document.head.appendChild(meta);
     }
     (async () => {
       const [profiles, posts] = await Promise.all([fetchRemoteProfiles(), fetchRemotePosts()]);
