@@ -11,7 +11,7 @@ import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip, Sect } from '../../components/ui';
 import { getProfiles } from '../../lib/data/registry';
 import { COST, PASS_PRICE } from '../../lib/economy';
-import { acceptSignal, fetchIncomingSignals, IncomingSignal } from '../../lib/server';
+import { acceptSignal, fetchIncomingSignals, fetchMyMatches, IncomingSignal } from '../../lib/server';
 import { compatWith, distanceLabel, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
@@ -34,9 +34,11 @@ export default function Inbox() {
   const [passOpen, setPassOpen] = useState(false);
   const [srvIncoming, setSrvIncoming] = useState<IncomingSignal[]>([]);
 
-  // 탭에 들어올 때마다 수신 신호 재조회 — 상대가 방금 보낸 신호가 바로 보이도록
+  // 탭에 들어올 때마다 수신 신호·매칭 재조회 — 내가 보낸 신호의 수락도 여기서 반영된다
   useFocusEffect(useCallback(() => {
-    if (serverMode) void fetchIncomingSignals().then(setSrvIncoming);
+    if (!serverMode) return;
+    void fetchIncomingSignals().then(setSrvIncoming);
+    void fetchMyMatches().then((hs) => useApp.getState().syncServerMatches(hs));
   }, [serverMode]));
 
   const incoming = useMemo(

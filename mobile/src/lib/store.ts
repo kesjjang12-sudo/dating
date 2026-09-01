@@ -79,6 +79,7 @@ interface AppState {
   editHour: (hourBranch: number | null) => boolean;
   setPhotoUrl: (url: string) => void;
   setMyCoords: (c: { lat: number; lng: number }) => void;
+  syncServerMatches: (handles: string[]) => void;
   setMissionPhotoClaimed: () => void;
   setReferralApplied: () => void;
   buyPack: (coins: number) => void;
@@ -330,6 +331,15 @@ export const useApp = create<AppState>()(
       },
 
       setMyCoords: (c) => set({ myCoords: c }),
+
+      syncServerMatches: (handles) => {
+        const cur = get().matches;
+        const fresh = handles.filter((h) => !cur.includes(h));
+        if (fresh.length === 0) return;
+        const sent = { ...get().sentSignals };
+        for (const h of fresh) if (sent[h] === 'pending') sent[h] = 'accepted';
+        set({ matches: [...cur, ...fresh], sentSignals: sent });
+      },
       setMissionPhotoClaimed: () => set({ missionPhotoClaimed: true }),
       setReferralApplied: () => set({ referralApplied: true }),
 

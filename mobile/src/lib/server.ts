@@ -222,6 +222,31 @@ export async function fetchIncomingSignals(): Promise<IncomingSignal[]> {
   }
 }
 
+/** 내 서버 매칭 전체 — 상대 프로필을 레지스트리에 편입하고 handle 목록 반환.
+ *  신호를 보낸 쪽도 상대의 수락을 이걸로 알게 된다. */
+export async function fetchMyMatches(): Promise<string[]> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return [];
+  try {
+    const { data } = await sb.from('matches')
+      .select(`id, user_a, user_b, pa:profiles!matches_user_a_fkey(${PROFILE_COLUMNS}), pb:profiles!matches_user_b_fkey(${PROFILE_COLUMNS})`)
+      .or(`user_a.eq.${myProfileId},user_b.eq.${myProfileId}`);
+    if (!data) return [];
+    const handles: string[] = [];
+    for (const r of data) {
+      const other = (r.user_a === myProfileId ? r.pb : r.pa) as unknown as ProfileRow | null;
+      if (!other) continue;
+      const prof = rowToProfile(other);
+      upsertProfile(prof, other.id);
+      matchIds[prof.id] = r.id as number;
+      handles.push(prof.id);
+    }
+    return handles;
+  } catch {
+    return [];
+  }
+}
+
 /** 수신 신호 수락 — DB 트리거가 매칭을 생성한다 */
 export async function acceptSignal(signalId: number): Promise<boolean> {
   const sb = getSupabase();
