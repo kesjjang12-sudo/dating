@@ -60,6 +60,12 @@ export const branchesClash = (a: number, b: number): boolean => (a % 12 + 6) % 1
 /** 육십갑자 인덱스(0=갑자)에서 간지 분해 */
 export const splitGanzhi = (idx: number) => ({ stem: ((idx % 60) + 60) % 60 % 10, branch: ((idx % 60) + 60) % 60 % 12 });
 
+/** 간지 → 육십갑자 인덱스 (DB 캐시 컬럼용) */
+export function ganzhiIndex(p: Pillar): number {
+  for (let i = 0; i < 60; i++) if (i % 10 === p.stem && i % 12 === p.branch) return i;
+  return 0;
+}
+
 export interface Pillar { stem: number; branch: number; }
 export const pillarKo = (p: Pillar): string => STEMS_KO[p.stem] + BRANCHES_KO[p.branch];
 export const pillarHanja = (p: Pillar): string => STEMS_HANJA[p.stem] + BRANCHES_HANJA[p.branch];

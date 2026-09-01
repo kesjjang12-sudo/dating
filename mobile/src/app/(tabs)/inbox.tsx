@@ -105,6 +105,8 @@ export default function Inbox() {
                     onPress={() =>
                       requestSpend({
                         cost: COST.signal,
+                        reason: 'signal',
+                        ref: viewer.id,
                         title: '인연 신호 보내기',
                         desc: `${viewer.name}님에게 궁합 ${vCompat.total}점과 함께 신호를 보내요.`,
                         okLabel: '신호 보내기',
@@ -135,6 +137,8 @@ export default function Inbox() {
                     onPress={() =>
                       requestSpend({
                         cost: COST.unblur,
+                        reason: 'unblur',
+                        ref: viewer.id,
                         title: '조회한 인연 확인',
                         desc: `궁합 ${vCompat.total}점의 인연이 누구인지 확인해요.`,
                         okLabel: '확인하기',

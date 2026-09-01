@@ -4,9 +4,15 @@
 import { SEED_PROFILES, SeedProfile } from './profiles';
 
 let current: SeedProfile[] = SEED_PROFILES;
+let serverIds: Record<string, string> = {}; // handle → 서버 프로필 uuid
 
 export const getProfiles = (): SeedProfile[] => current;
 
 export function setProfiles(next: SeedProfile[]): void {
   if (next.length > 0) current = next;
+}
+
+export const getServerId = (handle: string): string | undefined => serverIds[handle];
+export function setServerIds(map: Record<string, string>): void {
+  serverIds = map;
 }

@@ -57,9 +57,10 @@ export default function Fortune() {
               <Btn
                 label="오늘의 운세 확인하기" cost={`+${EARN.dailyFortune}`}
                 style={{ backgroundColor: '#fff' }}
-                onPress={() => {
-                  const res = claimFortune();
+                onPress={async () => {
+                  const res = await claimFortune();
                   if (res) showToast(res.streakBonus ? `엽전 ${res.earned}개! 7일 연속 보너스 포함 🎉` : `엽전 ${res.earned}개를 받았어요`);
+                  else showToast('오늘은 이미 받았어요 — 내일 다시 만나요');
                 }}
               />
             </>
@@ -82,6 +83,7 @@ export default function Fortune() {
                   onPress={() =>
                     requestSpend({
                       cost: COST.weekly,
+                      reason: 'weekly',
                       title: '이번 주 연애운 상세',
                       desc: '요일별 흐름, 길한 방향과 시간대, 신호 보내기 좋은 날까지 — 이번 주 전체 풀이를 확인해요.',
                       okLabel: '풀이 보기',

@@ -3,6 +3,7 @@
 
 import { getSupabase } from '../supabase';
 import { FeedPost, SeedProfile } from './profiles';
+import { setServerIds } from './registry';
 
 const TIMEOUT_MS = 5000;
 
@@ -14,6 +15,7 @@ function withTimeout<T>(p: PromiseLike<T>): Promise<T> {
 }
 
 interface ProfileRow {
+  id: string;
   handle: string;
   nickname: string;
   gender: 'M' | 'F';
@@ -55,11 +57,14 @@ export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   try {
     const { data, error } = await withTimeout(
       supabase.from('profiles')
-        .select('handle,nickname,gender,birth_date,hour_branch,job,intro,tags,demo_meta')
+        .select('id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,demo_meta')
+        .is('auth_id', null) // 시드/봇 프로필만 추천 풀에 (실유저 노출은 P1 정책 설계 후)
         .limit(100)
     );
     if (error || !data || data.length === 0) return null;
-    return (data as ProfileRow[]).map(rowToProfile);
+    const rows = data as ProfileRow[];
+    setServerIds(Object.fromEntries(rows.map((r) => [r.handle, r.id])));
+    return rows.map(rowToProfile);
   } catch {
     return null;
   }

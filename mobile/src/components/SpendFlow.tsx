@@ -12,6 +12,8 @@ import { StoreSheet } from './StoreSheet';
 
 export interface SpendReq {
   cost: number;
+  reason: string; // 서버 원장 사유 (signal / detail / extra_deck / unblur / weekly)
+  ref?: string;
   title: string;
   desc: string;
   okLabel: string;
@@ -43,10 +45,10 @@ export function useSpend() {
                 label={pending.okLabel}
                 cost={pending.cost}
                 style={{ flex: 1 }}
-                onPress={() => {
+                onPress={async () => {
                   const req = pending;
                   setPending(null);
-                  if (req && spend(req.cost)) req.onOk();
+                  if (req && (await spend(req.cost, req.reason, req.ref))) req.onOk();
                 }}
               />
             </View>

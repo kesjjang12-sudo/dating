@@ -20,6 +20,7 @@ export default function My() {
   const coins = useApp((st) => st.coins);
   const streak = useApp((st) => st.streak);
   const remoteReady = useApp((st) => st.remoteReady);
+  const serverMode = useApp((st) => st.serverMode);
   const editHour = useApp((st) => st.editHour);
   const resetAll = useApp((st) => st.resetAll);
   const showToast = useApp((st) => st.showToast);
@@ -40,8 +41,15 @@ export default function My() {
     { label: '내 사주 정보', right: `${user.hourBranch === null ? '시간 미상' : BRANCHES_KO[user.hourBranch] + '시'} · 수정 ${2 - user.hourEdits}회 남음`, onPress: () => setSajuOpen(true) },
     { label: '지인 차단', right: '켜짐', onPress: () => showToast('연락처 기반 지인 차단 (데모)') },
     {
-      label: '데이터 소스', right: remoteReady ? 'Supabase 연결됨' : '로컬 시드',
-      onPress: () => showToast(remoteReady ? '프로필·피드를 Supabase에서 불러왔어요' : 'Supabase 미연결 — 로컬 시드로 동작 중이에요 (mobile/.env 설정 필요)'),
+      label: '데이터 소스',
+      right: serverMode ? 'Supabase · 계정 동기화' : remoteReady ? 'Supabase 연결됨 (읽기)' : '로컬 시드',
+      onPress: () => showToast(
+        serverMode
+          ? '익명 계정으로 로그인됨 — 엽전·신호·채팅이 서버에 기록돼요'
+          : remoteReady
+            ? '프로필·피드는 서버에서 읽는 중 — 익명 로그인을 켜면 계정 동기화가 활성화돼요'
+            : 'Supabase 미연결 — 로컬 시드로 동작 중이에요'
+      ),
     },
     { label: '데모 초기화', right: '처음부터', onPress: () => setResetOpen(true) },
   ];

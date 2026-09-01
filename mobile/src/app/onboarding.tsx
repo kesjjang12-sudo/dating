@@ -10,6 +10,7 @@ import { SajuCard } from '../components/SajuCard';
 import { Btn } from '../components/ui';
 import { BRANCHES_KO, HOUR_RANGES } from '../lib/saju/ganzhi';
 import { fourPillars } from '../lib/saju/manseryeok';
+import { ensureServerSession } from '../lib/server';
 import { useApp } from '../lib/store';
 import { C, F } from '../lib/theme';
 
@@ -41,7 +42,10 @@ export default function Onboarding() {
   const birthStr = `${yy}-${String(Number(mm)).padStart(2, '0')}-${String(Number(dd)).padStart(2, '0')}`;
 
   const finish = () => {
-    completeOnboarding({ name: name.trim() || '인연', gender, birth: birthStr, hourBranch: hour ?? null });
+    const u = { name: name.trim() || '인연', gender, birth: birthStr, hourBranch: hour ?? null };
+    completeOnboarding(u);
+    // 서버 세션(익명 로그인) — 실패하면 로컬 모드로 계속
+    void ensureServerSession(u).then((bal) => useApp.getState().setServerMode(bal));
     showToast('가입 완료 — 첫 인연 3명이 도착했어요');
     router.replace('/(tabs)');
   };

@@ -1,0 +1,54 @@
+name: Deploy web to GitHub Pages
+
+on:
+  push:
+    branches: [claude/untitled-session-4yc65z, main]
+    paths: [mobile/**, .github/workflows/deploy-web.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+        working-directory: mobile
+      - run: npx expo export --platform web
+        working-directory: mobile
+        env:
+          EXPO_WEB_BASE: /dating
+          # publishable 키는 공개용 (RLS가 데이터 보호)
+          EXPO_PUBLIC_SUPABASE_URL: https://nmwdqycqlavfinecoljn.supabase.co
+          EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_lnpPqswgim6YmIHnV-9XGQ_xwdm-_0V
+      - name: SPA fallback
+        run: cp mobile/dist/+not-found.html mobile/dist/404.html 2>/dev/null || cp mobile/dist/index.html mobile/dist/404.html
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

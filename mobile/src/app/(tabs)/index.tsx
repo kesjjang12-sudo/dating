@@ -51,6 +51,8 @@ export default function Home() {
     const compat = compatWith(user, id);
     requestSpend({
       cost: COST.signal,
+      reason: 'signal',
+      ref: id,
       title: '인연 신호 보내기',
       desc: `${p.name}님에게 궁합 ${compat.total}점과 함께 신호를 보내요. 상대가 수락하면 채팅이 열려요.`,
       okLabel: '신호 보내기',
@@ -67,6 +69,8 @@ export default function Home() {
     const p = profileById(id);
     requestSpend({
       cost: COST.detail,
+      reason: 'detail',
+      ref: id,
       title: '상세 궁합 풀이',
       desc: `${p.name}님과의 5요소 궁합과 관계 풀이를 확인해요. 한 번 열람하면 계속 무료로 볼 수 있어요.`,
       okLabel: '풀이 보기',
@@ -97,6 +101,7 @@ export default function Home() {
               onPress={() =>
                 requestSpend({
                   cost: COST.extraDeck,
+                  reason: 'extra_deck',
                   title: '오늘의 인연 추가 열람',
                   desc: '새로운 인연 3명을 더 추천받아요.',
                   okLabel: '추가 열람',
