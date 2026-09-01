@@ -46,14 +46,23 @@ export default function Chat() {
         setSrvMsgs((cur) => (cur ?? []).some((x) => key(x) === key(m)) ? cur : [...(cur ?? []), m]);
       });
       void revealState(id).then((r) => { if (alive) setReveal(r); });
+      // 병합 키는 (발신자|내용) — 낙관적 표시한 내 메시지와 서버 에코의 ts 차이로 인한 중복 방지
+      const soft = (m: ServerMsg) => `${m.from}|${m.text}`;
+      const merge = (rows: ServerMsg[]) =>
+        setSrvMsgs((cur) => {
+          const seen = new Set(rows.map(soft));
+          return [...rows, ...(cur ?? []).filter((m) => !seen.has(soft(m)))];
+        });
       const init = await fetchServerMessages(id);
       if (!alive) { cleanup?.(); return; }
-      if (init) {
-        setSrvMsgs((cur) => {
-          const seen = new Set(init.map(key));
-          return [...init, ...(cur ?? []).filter((m) => !seen.has(key(m)))];
-        });
-      }
+      if (init) merge(init);
+      // 실시간 조인이 실패/지연해도 대화가 끊기지 않도록 폴링 백업
+      const poll = setInterval(async () => {
+        const upd = await fetchServerMessages(id);
+        if (alive && upd) merge(upd);
+      }, 8000);
+      const prev = cleanup;
+      cleanup = () => { clearInterval(poll); prev?.(); };
     })();
     return () => { alive = false; cleanup?.(); };
   }, [id, serverMode]);
