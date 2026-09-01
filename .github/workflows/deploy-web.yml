@@ -7,16 +7,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,19 +34,9 @@ jobs:
           EXPO_PUBLIC_SUPABASE_KEY: sb_publishable_lnpPqswgim6YmIHnV-9XGQ_xwdm-_0V
       - name: SPA fallback
         run: cp mobile/dist/+not-found.html mobile/dist/404.html 2>/dev/null || cp mobile/dist/index.html mobile/dist/404.html
-      - uses: actions/configure-pages@v5
+      - name: Push to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          enablement: true
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: mobile/dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: mobile/dist
+          force_orphan: true
