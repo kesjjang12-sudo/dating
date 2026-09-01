@@ -12,7 +12,7 @@ import { Btn, Chip, Sect } from '../../components/ui';
 import { getProfiles } from '../../lib/data/registry';
 import { COST, PASS_PRICE } from '../../lib/economy';
 import { acceptSignal, fetchIncomingSignals, IncomingSignal } from '../../lib/server';
-import { compatWith, profileById, useApp } from '../../lib/store';
+import { compatWith, distanceLabel, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
 export default function Inbox() {
@@ -62,7 +62,7 @@ export default function Inbox() {
         <Sect label="받은 신호" style={{ marginTop: 6 }} />
         {srvIncoming.map(({ signalId, profile: p, score }) => (
           <View key={`srv-${signalId}`} style={s.row}>
-            <Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} />
+            <Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} blurred={!!p.photoUrl} />
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={s.nm}>{p.name}</Text>
@@ -96,7 +96,7 @@ export default function Inbox() {
                   <Text style={s.nm}>{p.name}</Text>
                   <Chip label={`궁합 ${c.total}`} tone="good" />
                 </View>
-                <Text style={s.ds}>{p.job} · {p.distKm}km{c.precise ? ' · 정밀 궁합' : ''}</Text>
+                <Text style={s.ds}>{p.job} · {distanceLabel(p)}{c.precise ? ' · 정밀 궁합' : ''}</Text>
               </View>
               {st === 'connected' ? (
                 <Btn label="채팅 열기" kind="ghost" small onPress={() => router.push({ pathname: '/chat/[id]', params: { id: p.id } })} />
@@ -123,7 +123,7 @@ export default function Inbox() {
                     <Text style={s.nm}>{viewer.name}</Text>
                     <Chip label={`궁합 ${vCompat.total}${vCompat.precise ? ' · 정밀' : ''}`} tone="good" />
                   </View>
-                  <Text style={s.ds}>{viewer.job} · {viewer.distKm}km</Text>
+                  <Text style={s.ds}>{viewer.job} · {distanceLabel(viewer)}</Text>
                 </View>
                 {sentSignals[viewer.id] ? (
                   matches.includes(viewer.id) ? (
@@ -160,7 +160,7 @@ export default function Inbox() {
                       <Text style={{ color: C.accentDeep, fontWeight: '700' }}>{`상위 궁합 · ${vCompat.total}점`}</Text>
                       의 인연이{'\n'}회원님의 프로필을 조회했어요
                     </Text>
-                    <Text style={s.teaserSub}>3시간 전 · {viewer.distKm}km</Text>
+                    <Text style={s.teaserSub}>3시간 전 · {distanceLabel(viewer)}</Text>
                   </View>
                 </View>
                 <View style={{ marginTop: 13 }}>

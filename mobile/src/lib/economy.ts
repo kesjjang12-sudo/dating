@@ -16,7 +16,7 @@ export const EARN = {
   referral: 100,     // 친구 초대
 } as const;
 
-export const START_COINS = 420;
+export const START_COINS = 10000; // 파일럿 기간 상향 — 정식 오픈 시 420으로 (서버 create_wallet도 함께)
 
 export const PACKAGES: { coins: number; price: string; tag?: string }[] = [
   { coins: 100, price: '₩4,900' },

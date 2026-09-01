@@ -25,6 +25,8 @@ export interface ProfileRow {
   intro: string | null;
   tags: string[] | null;
   photos: string[] | null;
+  lat: number | null;
+  lng: number | null;
   demo_meta: Record<string, unknown> | null;
 }
 
@@ -55,6 +57,8 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
     tags: r.tags ?? [],
     colors: m.colors ?? hashColors(r.handle),
     photoUrl: r.photos?.[0],
+    lat: r.lat,
+    lng: r.lng,
     intro: r.intro ?? '',
     firstMsg: m.first_msg ?? '반가워요! 궁합이 좋게 나와서 연결됐네요.',
     replies: m.replies ?? [],
@@ -64,7 +68,7 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
   };
 }
 
-export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,demo_meta';
+export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta';
 
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   const supabase = getSupabase();

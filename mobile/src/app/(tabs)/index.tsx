@@ -13,7 +13,7 @@ import { useSpend } from '../../components/SpendFlow';
 import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip } from '../../components/ui';
 import { COST } from '../../lib/economy';
-import { compatWith, profileById, useApp } from '../../lib/store';
+import { compatWith, distanceLabel, profileById, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
 /** 점수 → 상위 % 라벨 (티어식 근사) */
@@ -122,13 +122,21 @@ export default function Home() {
                 <View style={s.card}>
                   <LinearGradient colors={p.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.photo}>
                     {p.photoUrl
-                      ? <Image source={{ uri: p.photoUrl }} style={s.shade} contentFit="cover" transition={150} />
+                      ? (
+                        <>
+                          <Image source={{ uri: p.photoUrl }} style={s.shade} contentFit="cover" transition={150} blurRadius={22} />
+                          <View style={s.blindWrap}>
+                            <Text style={{ fontSize: 26 }}>🪢</Text>
+                            <Text style={s.blindTxt}>사주로 먼저 만나요{'\n'}서로 마음이 통하면 얼굴이 공개돼요</Text>
+                          </View>
+                        </>
+                      )
                       : <Text style={s.face}>{p.name[0]}</Text>}
                     <LinearGradient colors={['transparent', 'rgba(20,8,10,0.65)']} style={s.shade} />
                     <View style={s.info}>
                       <View style={{ flex: 1 }}>
                         <Text style={s.nm}>{p.name}, {ageOf(p.birth)}</Text>
-                        <Text style={s.subTxt}>{p.job} · {p.distKm}km</Text>
+                        <Text style={s.subTxt}>{p.job} · {distanceLabel(p)}</Text>
                       </View>
                       <ScoreRing score={c.total} sub={topPercent(c.total)} />
                     </View>
@@ -200,6 +208,8 @@ const s = StyleSheet.create({
   pass: { width: 54, borderRadius: R.md, borderWidth: 1.5, borderColor: C.line2, backgroundColor: C.card, alignItems: 'center', justifyContent: 'center' },
   introTxt: { fontSize: 13, color: C.muted, textAlign: 'center', marginTop: 14, fontStyle: 'italic' },
   empty: { alignItems: 'center', paddingTop: 56, paddingBottom: 20, paddingHorizontal: 8 },
+  blindWrap: { ...StyleSheet.absoluteFill as object, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(20,8,10,0.25)' },
+  blindTxt: { color: '#fff', fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 20, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 6 },
   emptyBig: { fontFamily: F.serif, fontSize: 19, color: C.ink, marginBottom: 8 },
   emptyNote: { fontSize: 13, color: C.faint, textAlign: 'center', lineHeight: 21, marginBottom: 18 },
 });

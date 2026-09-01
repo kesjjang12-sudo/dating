@@ -9,9 +9,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
-import { Chip } from '../../components/ui';
+import { Btn, Chip } from '../../components/ui';
 import {
-  fetchServerMessages, ServerMsg, serverSendMessage, subscribeMessages,
+  fetchServerMessages, revealFace, RevealState, revealState, ServerMsg, serverSendMessage, subscribeMessages,
 } from '../../lib/server';
 import { ChatMsg, compatWith, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
@@ -23,8 +23,10 @@ export default function Chat() {
   const serverMode = useApp((st) => st.serverMode);
   const sendMessage = useApp((st) => st.sendMessage);
   const receiveReply = useApp((st) => st.receiveReply);
+  const showToast = useApp((st) => st.showToast);
   const [text, setText] = useState('');
   const [srvMsgs, setSrvMsgs] = useState<ServerMsg[] | null>(null);
+  const [reveal, setReveal] = useState<RevealState | null>(null);
   const listRef = useRef<FlatList<ChatMsg | ServerMsg>>(null);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingEcho = useRef<string[]>([]); // 낙관적 표시한 내 메시지 (실시간 에코 중복 방지)
@@ -43,6 +45,7 @@ export default function Chat() {
         }
         setSrvMsgs((cur) => (cur ?? []).some((x) => key(x) === key(m)) ? cur : [...(cur ?? []), m]);
       });
+      void revealState(id).then((r) => { if (alive) setReveal(r); });
       const init = await fetchServerMessages(id);
       if (!alive) { cleanup?.(); return; }
       if (init) {
@@ -84,13 +87,35 @@ export default function Chat() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color={C.ink} />
         </Pressable>
-        <Avatar colors={p.colors} initial={p.name[0]} size={36} photoUrl={p.photoUrl} />
+        <Avatar
+          colors={p.colors} initial={p.name[0]} size={36} photoUrl={p.photoUrl}
+          blurred={!!p.photoUrl && !(reveal?.revealed ?? false)}
+        />
         <View style={{ flex: 1 }}>
           <Text style={s.nm}>{p.name}</Text>
-          <Text style={s.sub}>{p.job} · {p.distKm}km{live ? ' · 실시간' : ''}</Text>
+          <Text style={s.sub}>{p.job}{live ? ' · 실시간' : ''}{reveal?.revealed ? ' · 얼굴 공개됨' : ''}</Text>
         </View>
         <Chip label={`궁합 ${c.total}`} tone="good" />
       </View>
+
+      {live && reveal && !reveal.revealed && (
+        <View style={s.revealBar}>
+          <Text style={s.revealTxt}>
+            {reveal.mine ? '내 공개 완료 — 상대의 수락을 기다리는 중이에요' : '사주로 이어진 인연 — 서로 동의하면 얼굴이 공개돼요'}
+          </Text>
+          {!reveal.mine && (
+            <Btn
+              label="얼굴 공개하기" small
+              onPress={async () => {
+                const r = await revealFace(id);
+                if (!r) { showToast('잠시 후 다시 시도해 주세요'); return; }
+                setReveal(r);
+                showToast(r.revealed ? '서로 얼굴이 공개됐어요! 🎉' : '공개 완료 — 상대가 수락하면 서로 보여요');
+              }}
+            />
+          )}
+        </View>
+      )}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={8}>
         <FlatList
@@ -133,6 +158,11 @@ const s = StyleSheet.create({
   },
   nm: { fontSize: 15.5, fontWeight: '700', color: C.ink },
   sub: { fontSize: 11.5, color: C.muted },
+  revealBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9,
+    backgroundColor: C.accentSoft, borderBottomWidth: 1, borderBottomColor: C.line,
+  },
+  revealTxt: { flex: 1, fontSize: 12.5, color: C.accentDeep, fontWeight: '600', lineHeight: 18 },
   matchNote: { alignItems: 'center', marginBottom: 14, backgroundColor: C.accentSoft, borderRadius: R.md, padding: 12 },
   matchTxt: { fontSize: 13, fontWeight: '600', color: C.accentDeep, textAlign: 'center' },
   matchSub: { fontSize: 11.5, color: C.muted, marginTop: 3 },

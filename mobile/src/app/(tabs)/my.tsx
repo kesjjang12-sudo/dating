@@ -3,7 +3,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { Header } from '../../components/Header';
@@ -13,7 +13,7 @@ import { StoreSheet } from '../../components/StoreSheet';
 import { Btn, Chip } from '../../components/ui';
 import { EARN, PASS_PRICE } from '../../lib/economy';
 import { BRANCHES_KO, HOUR_RANGES, pillarKo } from '../../lib/saju/ganzhi';
-import { uploadAvatar } from '../../lib/server';
+import { applyReferral, claimMissionPhoto, getMyHandle, uploadAvatar } from '../../lib/server';
 import { myPillars, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
@@ -28,6 +28,11 @@ export default function My() {
   const resetAll = useApp((st) => st.resetAll);
   const showToast = useApp((st) => st.showToast);
   const [uploading, setUploading] = useState(false);
+  const [refCode, setRefCode] = useState('');
+  const missionPhotoClaimed = useApp((st) => st.missionPhotoClaimed);
+  const referralApplied = useApp((st) => st.referralApplied);
+  const setMissionPhotoClaimed_ = useApp((st) => st.setMissionPhotoClaimed);
+  const setReferralApplied_ = useApp((st) => st.setReferralApplied);
 
   const pickPhoto = async () => {
     if (!useApp.getState().serverMode) {
@@ -122,18 +127,60 @@ export default function My() {
       <Sheet visible={missionOpen} onClose={() => setMissionOpen(false)}>
         <SheetTitle>미션 — 엽전 모으기</SheetTitle>
         <SheetDesc>매일의 작은 의식이 신호 한 번이 됩니다.</SheetDesc>
-        {[
-          [`오늘의 운세 확인`, `+${EARN.dailyFortune} / 일`],
-          [`7일 연속 출석`, `+${EARN.streak7}`],
-          [`프로필 100% 완성`, `+${EARN.profileDone}`],
-          [`직장·학교·매력 인증`, `+${EARN.verify} 각`],
-          [`친구 초대`, `+${EARN.referral} / 명`],
-        ].map(([l, v]) => (
-          <View key={l} style={s.missionRow}>
-            <Text style={s.mLabel}>{l}</Text>
-            <Text style={{ color: C.coin, fontWeight: '700', fontVariant: ['tabular-nums'] }}>{v}</Text>
+
+        <View style={s.missionRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.mLabel}>오늘의 운세 확인</Text>
+            <Text style={s.mHint}>연속 {streak}일째 · 7일마다 +{EARN.streak7} 보너스</Text>
           </View>
-        ))}
+          <Text style={s.mCoin}>+{EARN.dailyFortune}/일</Text>
+        </View>
+
+        <View style={s.missionRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.mLabel}>프로필 사진 등록</Text>
+            <Text style={s.mHint}>{user.photoUrl ? '사진 등록 완료 — 보상을 받아가세요' : '사진을 먼저 등록해 주세요'}</Text>
+          </View>
+          {missionPhotoClaimed ? (
+            <Text style={s.mDone}>수령 완료</Text>
+          ) : (
+            <Btn
+              label="받기" small disabled={!user.photoUrl}
+              onPress={async () => {
+                const r = await claimMissionPhoto();
+                if (typeof r === 'number') { useApp.setState({ coins: r }); setMissionPhotoClaimed_(); showToast(`엽전 ${EARN.profileDone}개를 받았어요`); }
+                else if (r === 'claimed') { setMissionPhotoClaimed_(); showToast('이미 받은 미션이에요'); }
+                else if (r === 'no_photo') showToast('사진을 먼저 등록해 주세요');
+                else showToast('서버 연결(계정 동기화) 상태에서 받을 수 있어요');
+              }}
+            />
+          )}
+        </View>
+
+        <View style={s.missionRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.mLabel}>친구 초대 (+{EARN.referral}씩)</Text>
+            <Text style={s.mHint}>내 코드: {getMyHandle() ?? '서버 연결 후 발급'} — 친구가 입력하면 둘 다 +{EARN.referral}</Text>
+          </View>
+        </View>
+        {!referralApplied && (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+            <TextInput
+              style={s.refInput} value={refCode} onChangeText={setRefCode}
+              placeholder="받은 초대 코드 입력 (u_...)" placeholderTextColor={C.faint} autoCapitalize="none"
+            />
+            <Btn
+              label="적용" small disabled={!refCode.trim()}
+              onPress={async () => {
+                const r = await applyReferral(refCode);
+                if (typeof r === 'number') { useApp.setState({ coins: r }); setReferralApplied_(); showToast(`엽전 ${EARN.referral}개를 받았어요 — 친구에게도 지급됐어요`); }
+                else if (r === 'claimed') { setReferralApplied_(); showToast('초대 코드는 한 번만 쓸 수 있어요'); }
+                else if (r === 'bad_code') showToast('코드를 확인해 주세요');
+                else showToast('서버 연결(계정 동기화) 상태에서 쓸 수 있어요');
+              }}
+            />
+          </View>
+        )}
       </Sheet>
 
       <Sheet visible={sajuOpen} onClose={() => { setSajuOpen(false); setHourPick(false); }}>
@@ -187,7 +234,11 @@ const s = StyleSheet.create({
   passTitle: { fontFamily: F.serif, fontSize: 17, color: C.ink },
   passDesc: { fontSize: 13, color: C.muted, marginTop: 4 },
   refund: { textAlign: 'center', fontSize: 12, color: C.faint, marginTop: 18 },
-  missionRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
+  missionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line },
+  mHint: { fontSize: 11.5, color: C.faint, marginTop: 2 },
+  mCoin: { color: C.coin, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  mDone: { fontSize: 12.5, color: C.good, fontWeight: '700' },
+  refInput: { flex: 1, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.line2, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 9, fontSize: 13.5, color: C.ink },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tg: { width: '22%', flexGrow: 1, backgroundColor: C.bg, borderWidth: 1.5, borderColor: C.line2, borderRadius: 11, paddingVertical: 9, alignItems: 'center' },
   tgB: { fontWeight: '700', fontSize: 13, color: C.ink },

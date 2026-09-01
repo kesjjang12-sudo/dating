@@ -52,6 +52,9 @@ interface AppState {
   toast: { msg: string; ts: number } | null;
   remoteReady: boolean; // Supabase에서 프로필/피드를 받아왔는지 (미영속)
   serverMode: boolean;  // 익명 세션 + 서버 지갑까지 연결됐는지 (미영속)
+  myCoords: { lat: number; lng: number } | null;
+  missionPhotoClaimed: boolean;
+  referralApplied: boolean;
 
   completeOnboarding: (u: Omit<UserInfo, 'hourEdits'>) => void;
   ensureDeck: () => void;
@@ -75,6 +78,9 @@ interface AppState {
   toggleLike: (id: string) => void;
   editHour: (hourBranch: number | null) => boolean;
   setPhotoUrl: (url: string) => void;
+  setMyCoords: (c: { lat: number; lng: number }) => void;
+  setMissionPhotoClaimed: () => void;
+  setReferralApplied: () => void;
   buyPack: (coins: number) => void;
   showToast: (msg: string) => void;
   resetAll: () => void;
@@ -148,6 +154,9 @@ export const useApp = create<AppState>()(
       toast: null,
       remoteReady: false,
       serverMode: false,
+      myCoords: null,
+      missionPhotoClaimed: false,
+      referralApplied: false,
 
       setServerMode: (balance) => {
         if (balance === null) return;
@@ -320,6 +329,10 @@ export const useApp = create<AppState>()(
         if (user) set({ user: { ...user, photoUrl: url } });
       },
 
+      setMyCoords: (c) => set({ myCoords: c }),
+      setMissionPhotoClaimed: () => set({ missionPhotoClaimed: true }),
+      setReferralApplied: () => set({ referralApplied: true }),
+
       buyPack: (coins) => {
         if (get().serverMode) {
           void serverTopup(coins).then((bal) => { if (bal !== null) set({ coins: bal }); });
@@ -340,6 +353,7 @@ export const useApp = create<AppState>()(
           blurUnlocked: false, matches: [], chats: {}, replyIdx: {},
           fortuneDate: null, streak: 0, weeklyKey: null, posts: SEED_POSTS, toast: null,
           remoteReady: false, serverMode: false,
+          myCoords: null, missionPhotoClaimed: false, referralApplied: false,
         });
       },
     }),
@@ -352,3 +366,16 @@ export const useApp = create<AppState>()(
 );
 
 export const isWeeklyUnlocked = (key: string | null): boolean => key === weekKey();
+
+/** 표시용 거리 — 양쪽 좌표가 있으면 실거리(하버사인), 없으면 프로필 기본값 */
+export function distanceLabel(p: SeedProfile): string {
+  const me = useApp.getState().myCoords;
+  if (me && p.lat != null && p.lng != null) {
+    const R = 6371, toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(p.lat - me.lat), dLng = toRad(p.lng - me.lng);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(me.lat)) * Math.cos(toRad(p.lat)) * Math.sin(dLng / 2) ** 2;
+    const km = 2 * R * Math.asin(Math.sqrt(a));
+    return km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`;
+  }
+  return `${p.distKm}km`;
+}

@@ -234,6 +234,83 @@ export async function acceptSignal(signalId: number): Promise<boolean> {
   }
 }
 
+// ── 블라인드 얼굴 공개 ────────────────────────────────
+
+export interface RevealState { mine: boolean; theirs: boolean; revealed: boolean; }
+
+export async function revealState(handle: string): Promise<RevealState | null> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return null;
+  const mid = await matchIdWith(handle);
+  if (!mid) return null;
+  try {
+    const { data, error } = await sb.rpc('rpc_reveal_state', { p_match_id: mid });
+    return error ? null : (data as RevealState);
+  } catch {
+    return null;
+  }
+}
+
+/** 내 쪽 공개 동의 — 상대가 봇이면 즉시 상호 공개(데모) */
+export async function revealFace(handle: string): Promise<RevealState | null> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return null;
+  const mid = await matchIdWith(handle);
+  if (!mid) return null;
+  try {
+    const { data, error } = await sb.rpc('rpc_reveal_face', { p_match_id: mid });
+    return error ? null : (data as RevealState);
+  } catch {
+    return null;
+  }
+}
+
+// ── 미션 실지급 ───────────────────────────────────────
+
+/** 사진 등록 미션 +50. 성공: 새 잔액 / 이미 수령: 'claimed' / 사진 없음: 'no_photo' */
+export async function claimMissionPhoto(): Promise<number | 'claimed' | 'no_photo' | null> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return null;
+  try {
+    const { data, error } = await sb.rpc('rpc_claim_mission_photo');
+    if (error) {
+      if (error.message.includes('already_claimed')) return 'claimed';
+      if (error.message.includes('no_photo')) return 'no_photo';
+      return null;
+    }
+    return data as number;
+  } catch {
+    return null;
+  }
+}
+
+/** 초대 코드 적용 — 양쪽 +100. 성공: 새 잔액 / 이미 사용: 'claimed' / 잘못된 코드: 'bad_code' */
+export async function applyReferral(code: string): Promise<number | 'claimed' | 'bad_code' | null> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return null;
+  try {
+    const { data, error } = await sb.rpc('rpc_apply_referral', { code: code.trim() });
+    if (error) {
+      if (error.message.includes('already_claimed')) return 'claimed';
+      if (error.message.includes('bad_code')) return 'bad_code';
+      return null;
+    }
+    return data as number;
+  } catch {
+    return null;
+  }
+}
+
+// ── 위치 ──────────────────────────────────────────────
+
+export async function updateMyLocation(lat: number, lng: number): Promise<void> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return;
+  try {
+    await sb.from('profiles').update({ lat, lng }).eq('id', myProfileId);
+  } catch { /* noop */ }
+}
+
 // ── 프로필 사진 업로드 ────────────────────────────────
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
