@@ -1,5 +1,6 @@
 // 홈 — 오늘의 인연 카드덱. 궁합 가중 정렬, 신호/패스/상세 풀이.
 
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -120,7 +121,9 @@ export default function Home() {
               <View>
                 <View style={s.card}>
                   <LinearGradient colors={p.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.photo}>
-                    <Text style={s.face}>{p.name[0]}</Text>
+                    {p.photoUrl
+                      ? <Image source={{ uri: p.photoUrl }} style={s.shade} contentFit="cover" transition={150} />
+                      : <Text style={s.face}>{p.name[0]}</Text>}
                     <LinearGradient colors={['transparent', 'rgba(20,8,10,0.65)']} style={s.shade} />
                     <View style={s.info}>
                       <View style={{ flex: 1 }}>

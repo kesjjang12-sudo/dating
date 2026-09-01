@@ -16,3 +16,11 @@ export const getServerId = (handle: string): string | undefined => serverIds[han
 export function setServerIds(map: Record<string, string>): void {
   serverIds = map;
 }
+
+/** 개별 프로필 추가/갱신 — 앱 로드 후 가입한 실유저(수신 신호의 발신자 등) 편입용 */
+export function upsertProfile(p: SeedProfile, serverId: string): void {
+  const i = current.findIndex((x) => x.id === p.id);
+  if (i >= 0) current = [...current.slice(0, i), p, ...current.slice(i + 1)];
+  else current = [...current, p];
+  serverIds = { ...serverIds, [p.id]: serverId };
+}

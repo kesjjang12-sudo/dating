@@ -1,7 +1,7 @@
 // 관심함 — 받은 신호, 블러 티저(상위 궁합 조회자), 조회자 목록(구독 유도), 내 매칭
 
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
@@ -11,6 +11,7 @@ import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip, Sect } from '../../components/ui';
 import { getProfiles } from '../../lib/data/registry';
 import { COST, PASS_PRICE } from '../../lib/economy';
+import { acceptSignal, fetchIncomingSignals, IncomingSignal } from '../../lib/server';
 import { compatWith, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
@@ -27,8 +28,15 @@ export default function Inbox() {
   const sentSignals = useApp((st) => st.sentSignals);
   const showToast = useApp((st) => st.showToast);
   const remoteReady = useApp((st) => st.remoteReady);
+  const serverMode = useApp((st) => st.serverMode);
+  const connectIncomingStore = useApp((st) => st.connectIncoming);
   const { requestSpend, spendUI } = useSpend();
   const [passOpen, setPassOpen] = useState(false);
+  const [srvIncoming, setSrvIncoming] = useState<IncomingSignal[]>([]);
+
+  useEffect(() => {
+    if (serverMode) void fetchIncomingSignals().then(setSrvIncoming);
+  }, [serverMode]);
 
   const incoming = useMemo(
     () => (user ? getProfiles().filter((p) => p.sentSignal && p.gender !== user.gender) : []),
@@ -52,7 +60,31 @@ export default function Inbox() {
       <Header title="관심함" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
         <Sect label="받은 신호" style={{ marginTop: 6 }} />
-        {incoming.length === 0 && <Text style={s.emptyTxt}>아직 받은 신호가 없어요</Text>}
+        {srvIncoming.map(({ signalId, profile: p, score }) => (
+          <View key={`srv-${signalId}`} style={s.row}>
+            <Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} />
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={s.nm}>{p.name}</Text>
+                <Chip label={`궁합 ${score}`} tone="good" />
+                <Chip label="실유저" tone="acc" />
+              </View>
+              <Text style={s.ds}>{p.job} · {p.intro || '진지한 만남을 찾고 있어요'}</Text>
+            </View>
+            <Btn
+              label="연결하기" small
+              onPress={async () => {
+                const ok = await acceptSignal(signalId);
+                if (!ok) { showToast('연결에 실패했어요 — 잠시 후 다시 시도해 주세요'); return; }
+                setSrvIncoming((cur) => cur.filter((x) => x.signalId !== signalId));
+                connectIncomingStore(p.id);
+                showToast(`${p.name}님과 연결됐어요 — 채팅이 열렸어요`);
+                router.push({ pathname: '/chat/[id]', params: { id: p.id } });
+              }}
+            />
+          </View>
+        ))}
+        {incoming.length === 0 && srvIncoming.length === 0 && <Text style={s.emptyTxt}>아직 받은 신호가 없어요</Text>}
         {incoming.map((p) => {
           const st = incomingHandled[p.id];
           const c = compatWith(user, p.id);

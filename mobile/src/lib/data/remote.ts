@@ -14,7 +14,7 @@ function withTimeout<T>(p: PromiseLike<T>): Promise<T> {
   ]);
 }
 
-interface ProfileRow {
+export interface ProfileRow {
   id: string;
   handle: string;
   nickname: string;
@@ -24,10 +24,22 @@ interface ProfileRow {
   job: string | null;
   intro: string | null;
   tags: string[] | null;
+  photos: string[] | null;
   demo_meta: Record<string, unknown> | null;
 }
 
-function rowToProfile(r: ProfileRow): SeedProfile {
+// 실유저(사진 없을 때) 아바타 색 — handle 해시로 결정
+const REAL_PALETTES: [string, string][] = [
+  ['#4E6E8E', '#8FB0C9'], ['#7E5A44', '#C9A227'], ['#5E7250', '#9DB08A'],
+  ['#6E4A7E', '#B93359'], ['#4E8E7F', '#8FC9B9'], ['#33506C', '#6E8CA8'],
+];
+const hashColors = (s: string): [string, string] => {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return REAL_PALETTES[h % REAL_PALETTES.length];
+};
+
+export function rowToProfile(r: ProfileRow): SeedProfile {
   const m = (r.demo_meta ?? {}) as {
     colors?: [string, string]; dist_km?: number; first_msg?: string; replies?: string[];
     accepts_instantly?: boolean; viewed_me?: boolean; sent_signal?: boolean;
@@ -41,7 +53,8 @@ function rowToProfile(r: ProfileRow): SeedProfile {
     job: r.job ?? '회사원',
     distKm: m.dist_km ?? 10,
     tags: r.tags ?? [],
-    colors: m.colors ?? ['#8A97AC', '#5A6B84'],
+    colors: m.colors ?? hashColors(r.handle),
+    photoUrl: r.photos?.[0],
     intro: r.intro ?? '',
     firstMsg: m.first_msg ?? '반가워요! 궁합이 좋게 나와서 연결됐네요.',
     replies: m.replies ?? [],
@@ -51,15 +64,16 @@ function rowToProfile(r: ProfileRow): SeedProfile {
   };
 }
 
+export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,demo_meta';
+
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data, error } = await withTimeout(
       supabase.from('profiles')
-        .select('id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,demo_meta')
-        .is('auth_id', null) // 시드/봇 프로필만 추천 풀에 (실유저 노출은 P1 정책 설계 후)
-        .limit(100)
+        .select(PROFILE_COLUMNS) // 실유저 포함 — 본인 프로필은 덱 생성 시 제외
+        .limit(200)
     );
     if (error || !data || data.length === 0) return null;
     const rows = data as ProfileRow[];

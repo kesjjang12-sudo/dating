@@ -8,7 +8,7 @@ import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
 import { getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
-  serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
+  getMyHandle, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
   serverSignOut, serverSpend, serverTopup,
 } from './server';
 import { EARN, START_COINS } from './economy';
@@ -21,6 +21,7 @@ export interface UserInfo {
   birth: string;             // YYYY-MM-DD (PASS 인증값 — 수정 불가)
   hourBranch: number | null; // 시진, null=미상
   hourEdits: number;         // 출생시간 수정 횟수 (최대 2)
+  photoUrl?: string | null;  // 내 프로필 사진 (Storage 공개 URL)
 }
 
 export interface ChatMsg { from: 'me' | 'them'; text: string; ts: number; }
@@ -73,6 +74,7 @@ interface AppState {
   addPost: (cat: string, title: string, body: string) => void;
   toggleLike: (id: string) => void;
   editHour: (hourBranch: number | null) => boolean;
+  setPhotoUrl: (url: string) => void;
   buyPack: (coins: number) => void;
   showToast: (msg: string) => void;
   resetAll: () => void;
@@ -110,8 +112,9 @@ export function compatWith(user: UserInfo, profileId: string): CompatResult {
 
 /** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다" */
 function buildDeck(user: UserInfo, exclude: Set<string>): string[] {
+  const me = getMyHandle();
   const candidates = getProfiles()
-    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal)
+    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal && p.id !== me)
     .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total);
   if (candidates.length === 0) return [];
   const d = new Date();
@@ -310,6 +313,11 @@ export const useApp = create<AppState>()(
         compatCache.clear();
         set({ user: { ...user, hourBranch, hourEdits: user.hourEdits + 1 } });
         return true;
+      },
+
+      setPhotoUrl: (url) => {
+        const { user } = get();
+        if (user) set({ user: { ...user, photoUrl: url } });
       },
 
       buyPack: (coins) => {

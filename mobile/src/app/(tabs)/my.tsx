@@ -1,5 +1,6 @@
 // 마이 — 프로필, 스토어, 미션, 내 사주 정보(출생시간 2회 수정), 데모 초기화
 
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -12,6 +13,7 @@ import { StoreSheet } from '../../components/StoreSheet';
 import { Btn, Chip } from '../../components/ui';
 import { EARN, PASS_PRICE } from '../../lib/economy';
 import { BRANCHES_KO, HOUR_RANGES, pillarKo } from '../../lib/saju/ganzhi';
+import { uploadAvatar } from '../../lib/server';
 import { myPillars, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
@@ -22,8 +24,26 @@ export default function My() {
   const remoteReady = useApp((st) => st.remoteReady);
   const serverMode = useApp((st) => st.serverMode);
   const editHour = useApp((st) => st.editHour);
+  const setPhotoUrl = useApp((st) => st.setPhotoUrl);
   const resetAll = useApp((st) => st.resetAll);
   const showToast = useApp((st) => st.showToast);
+  const [uploading, setUploading] = useState(false);
+
+  const pickPhoto = async () => {
+    if (!useApp.getState().serverMode) {
+      showToast('사진 업로드는 서버 연결(계정 동기화) 상태에서 가능해요');
+      return;
+    }
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'], quality: 0.8, base64: true, allowsEditing: true, aspect: [1, 1],
+    });
+    if (res.canceled || !res.assets[0]?.base64) return;
+    setUploading(true);
+    const url = await uploadAvatar(res.assets[0].base64, res.assets[0].mimeType ?? 'image/jpeg');
+    setUploading(false);
+    if (url) { setPhotoUrl(url); showToast('프로필 사진이 등록됐어요 — 상대에게도 보여요'); }
+    else showToast('업로드에 실패했어요 — 잠시 후 다시 시도해 주세요');
+  };
 
   const [storeOpen, setStoreOpen] = useState(false);
   const [missionOpen, setMissionOpen] = useState(false);
@@ -59,7 +79,9 @@ export default function My() {
       <Header title="마이" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
         <View style={s.me}>
-          <Avatar colors={['#33506C', '#221E17']} initial={user.name[0]} size={64} />
+          <Pressable onPress={pickPhoto}>
+            <Avatar colors={['#33506C', '#221E17']} initial={user.name[0]} size={64} photoUrl={user.photoUrl ?? undefined} />
+          </Pressable>
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Text style={s.meName}>{user.name}</Text>
@@ -68,7 +90,10 @@ export default function My() {
             <Text style={s.meSub}>{user.birth.replace(/-/g, '.')} · 본인인증 완료</Text>
           </View>
         </View>
-        <Btn label="프로필 수정" kind="ghost" onPress={() => showToast('프로필 편집 (데모) — 사진·문답·태그는 P0 후반 범위예요')} />
+        <Btn
+          label={uploading ? '업로드 중…' : user.photoUrl ? '프로필 사진 변경' : '프로필 사진 등록'}
+          kind="ghost" disabled={uploading} onPress={pickPhoto}
+        />
 
         <View style={s.menu}>
           {rows.map((r, i) => (

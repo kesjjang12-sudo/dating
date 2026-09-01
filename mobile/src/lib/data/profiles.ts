@@ -9,7 +9,8 @@ export interface SeedProfile {
   job: string;
   distKm: number;
   tags: string[];
-  colors: [string, string];  // 아바타 그라디언트
+  colors: [string, string];  // 아바타 그라디언트 (사진 없을 때)
+  photoUrl?: string;         // 프로필 사진 (Storage 공개 URL)
   intro: string;
   firstMsg: string;          // 매칭 시 첫 메시지
   replies: string[];         // 채팅 자동 응답

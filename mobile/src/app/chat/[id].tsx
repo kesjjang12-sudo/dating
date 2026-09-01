@@ -1,4 +1,5 @@
-// 채팅 — 매칭된 인연과의 1:1 대화 (데모: 상대 자동 응답)
+// 채팅 — 서버 매칭이 있으면 실시간(Realtime) 렌더링, 없으면 로컬 데모 대화.
+// 봇 답장은 DB 트리거가 생성하고 실시간 구독으로 도착한다.
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -9,6 +10,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { Chip } from '../../components/ui';
+import {
+  fetchServerMessages, ServerMsg, serverSendMessage, subscribeMessages,
+} from '../../lib/server';
 import { ChatMsg, compatWith, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
@@ -16,24 +20,60 @@ export default function Chat() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const user = useApp((st) => st.user);
   const chats = useApp((st) => st.chats);
+  const serverMode = useApp((st) => st.serverMode);
   const sendMessage = useApp((st) => st.sendMessage);
   const receiveReply = useApp((st) => st.receiveReply);
   const [text, setText] = useState('');
-  const listRef = useRef<FlatList<ChatMsg>>(null);
+  const [srvMsgs, setSrvMsgs] = useState<ServerMsg[] | null>(null);
+  const listRef = useRef<FlatList<ChatMsg | ServerMsg>>(null);
   const replyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingEcho = useRef<string[]>([]); // 낙관적 표시한 내 메시지 (실시간 에코 중복 방지)
+
+  useEffect(() => {
+    if (!serverMode || !id) return;
+    let alive = true;
+    let cleanup: (() => void) | null = null;
+    const key = (m: ServerMsg) => `${m.ts}|${m.from}|${m.text}`;
+    (async () => {
+      // 구독을 먼저 열고(조인 대기) 과거 메시지를 채운다 — 사이에 도착한 메시지는 중복 제거로 합쳐짐
+      cleanup = await subscribeMessages(id, (m) => {
+        if (m.from === 'me') {
+          const i = pendingEcho.current.indexOf(m.text);
+          if (i >= 0) { pendingEcho.current.splice(i, 1); return; }
+        }
+        setSrvMsgs((cur) => (cur ?? []).some((x) => key(x) === key(m)) ? cur : [...(cur ?? []), m]);
+      });
+      const init = await fetchServerMessages(id);
+      if (!alive) { cleanup?.(); return; }
+      if (init) {
+        setSrvMsgs((cur) => {
+          const seen = new Set(init.map(key));
+          return [...init, ...(cur ?? []).filter((m) => !seen.has(key(m)))];
+        });
+      }
+    })();
+    return () => { alive = false; cleanup?.(); };
+  }, [id, serverMode]);
 
   useEffect(() => () => { if (replyTimer.current) clearTimeout(replyTimer.current); }, []);
 
   if (!id || !user) return null;
   const p = profileById(id);
   const c = compatWith(user, id);
-  const msgs = chats[id] ?? [];
+  const live = serverMode && srvMsgs !== null;
+  const msgs: (ChatMsg | ServerMsg)[] = live ? srvMsgs! : (chats[id] ?? []);
 
   const send = () => {
     const t = text.trim();
     if (!t) return;
-    sendMessage(id, t);
     setText('');
+    if (live) {
+      pendingEcho.current.push(t);
+      setSrvMsgs((cur) => [...(cur ?? []), { from: 'me', text: t, ts: Date.now() }]);
+      void serverSendMessage(id, t);
+      return;
+    }
+    sendMessage(id, t);
     if (replyTimer.current) clearTimeout(replyTimer.current);
     replyTimer.current = setTimeout(() => receiveReply(id), 1400);
   };
@@ -44,10 +84,10 @@ export default function Chat() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color={C.ink} />
         </Pressable>
-        <Avatar colors={p.colors} initial={p.name[0]} size={36} />
+        <Avatar colors={p.colors} initial={p.name[0]} size={36} photoUrl={p.photoUrl} />
         <View style={{ flex: 1 }}>
           <Text style={s.nm}>{p.name}</Text>
-          <Text style={s.sub}>{p.job} · {p.distKm}km</Text>
+          <Text style={s.sub}>{p.job} · {p.distKm}km{live ? ' · 실시간' : ''}</Text>
         </View>
         <Chip label={`궁합 ${c.total}`} tone="good" />
       </View>
@@ -56,7 +96,7 @@ export default function Chat() {
         <FlatList
           ref={listRef}
           data={msgs}
-          keyExtractor={(m) => String(m.ts) + m.from}
+          keyExtractor={(m, i) => `${m.ts}-${i}`}
           contentContainerStyle={{ padding: 16, gap: 8 }}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           ListHeaderComponent={
