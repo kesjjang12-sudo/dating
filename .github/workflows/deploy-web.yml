@@ -39,4 +39,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: mobile/dist
-          force_orphan: true
+          # 이전 해시 번들을 남겨둬야 캐시된 index.html이 참조하는 JS가 404로 죽지 않는다
+          keep_files: true

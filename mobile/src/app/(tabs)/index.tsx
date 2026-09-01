@@ -38,9 +38,10 @@ export default function Home() {
   const unlockDetail = useApp((st) => st.unlockDetail);
   const showToast = useApp((st) => st.showToast);
   const { requestSpend, spendUI } = useSpend();
+  const remoteReady = useApp((st) => st.remoteReady);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  useEffect(() => { ensureDeck(); }, [ensureDeck]);
+  useEffect(() => { ensureDeck(); }, [ensureDeck, remoteReady]);
 
   if (!user) return null;
 

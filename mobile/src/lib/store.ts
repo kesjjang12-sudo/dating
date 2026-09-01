@@ -97,7 +97,14 @@ const weekKey = (): string => {
   return `${d.getFullYear()}-W${Math.floor(daysFromEpoch(d.getFullYear(), d.getMonth() + 1, d.getDate()) / 7)}`;
 };
 
-export const profileById = (id: string): SeedProfile => getProfiles().find((p) => p.id === id)!;
+// 탈퇴/삭제된 프로필을 참조하는 잔존 상태(덱·매칭·채팅)가 앱을 죽이지 않도록 폴백을 준다
+const MISSING_PROFILE: SeedProfile = {
+  id: 'missing', name: '떠난 인연', gender: 'F', birth: '1995-01-01', hourBranch: null,
+  job: '탈퇴한 회원', distKm: 0, tags: [], colors: ['#9AA3B2', '#6E7A8A'],
+  intro: '', firstMsg: '', replies: [], acceptsInstantly: false,
+};
+export const profileById = (id: string): SeedProfile =>
+  getProfiles().find((p) => p.id === id) ?? { ...MISSING_PROFILE, id };
 
 /** 사용자 사주 (없으면 null) */
 export function myPillars(user: UserInfo | null): FourPillars | null {
@@ -182,8 +189,12 @@ export const useApp = create<AppState>()(
       },
 
       ensureDeck: () => {
-        const { user, deckDate, matches } = get();
-        if (!user || deckDate === todayStr()) return;
+        const { user, deckDate, matches, deckIds, deckPos, remoteReady } = get();
+        if (!user) return;
+        // 서버 프로필 로딩 후, 덱의 남은 카드가 삭제된 프로필을 가리키면 오늘 덱을 다시 만든다
+        const known = new Set(getProfiles().map((p) => p.id));
+        const stale = remoteReady && deckIds.slice(deckPos).some((id) => !known.has(id));
+        if (deckDate === todayStr() && !stale) return;
         const exclude = new Set([...matches, ...Object.keys(get().passed)]);
         set({ deckDate: todayStr(), deckIds: buildDeck(user, exclude), deckPos: 0 });
       },
