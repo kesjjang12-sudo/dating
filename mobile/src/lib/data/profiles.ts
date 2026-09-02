@@ -152,6 +152,9 @@ export interface FeedPost {
   timeLabel: string;
   mine?: boolean;
   liked?: boolean;
+  anonymous?: boolean;     // false = 셀소(닉네임·프로필 공개). 미지정 = 익명
+  authorHandle?: string;   // 셀소 작성자 프로필 id(handle)
+  authorName?: string;
 }
 
 export const SEED_POSTS: FeedPost[] = [

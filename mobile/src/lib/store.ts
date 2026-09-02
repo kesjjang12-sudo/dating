@@ -8,7 +8,7 @@ import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
 import { getPins, getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
-  getMyHandle, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
+  getMyHandle, getMyProfileId, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
   serverSignOut, serverSpend, serverTopup, serverUpdateProfile,
 } from './server';
 import { EARN, START_COINS } from './economy';
@@ -78,6 +78,7 @@ interface AppState {
   applyRemote: (profiles: SeedProfile[] | null, posts: FeedPost[] | null) => void;
   addPost: (cat: string, title: string, body: string) => void;
   toggleLike: (id: string) => void;
+  likeSelso: (handle: string) => boolean; // 셀소 작성자에게 좋아요(무료 신호) — 이미 보냈으면 false
   editHour: (hourBranch: number | null) => boolean;
   setPhotoUrl: (url: string) => void;
   saveProfile: (f: ProfileFields) => Promise<boolean>;
@@ -331,12 +332,24 @@ export const useApp = create<AppState>()(
       },
 
       addPost: (cat, title, body) => {
+        // 셀소는 닉네임·프로필 공개(작성자 기록), 나머지는 익명
+        const anonymous = cat !== '셀소';
+        const me = getMyHandle();
         const post: FeedPost = {
           id: `mine-${Date.now()}`, cat, title, body,
           likes: 0, comments: 0, views: 1, timeLabel: '지금 막', mine: true,
+          anonymous, authorHandle: anonymous ? undefined : me ?? undefined, authorName: anonymous ? undefined : get().user?.name,
         };
         set({ posts: [post, ...get().posts] });
-        void submitRemotePost(cat, title, body); // 서버 기록은 best-effort — 실패해도 로컬 유지
+        void submitRemotePost(cat, title, body, anonymous, anonymous ? undefined : getMyProfileId() ?? undefined); // best-effort
+      },
+
+      likeSelso: (handle) => {
+        const { user, sentSignals, matches } = get();
+        if (!user || sentSignals[handle] || matches.includes(handle) || handle === getMyHandle()) return false;
+        set({ sentSignals: { ...sentSignals, [handle]: 'pending' } });
+        void serverSendSignal(handle, compatWith(user, handle).total, 'selso');
+        return true;
       },
 
       toggleLike: (id) =>

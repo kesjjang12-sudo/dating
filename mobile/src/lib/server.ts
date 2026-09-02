@@ -114,12 +114,14 @@ export async function serverTopup(amount: number): Promise<number | null> {
 }
 
 /** 신호 서버 기록 — 봇 상대면 DB 트리거가 수락·매칭·첫 메시지까지 처리 */
-export async function serverSendSignal(receiverHandle: string, score: number): Promise<void> {
+export const getMyProfileId = (): string | null => myProfileId;
+
+export async function serverSendSignal(receiverHandle: string, score: number, source: 'deck' | 'selso' = 'deck'): Promise<void> {
   const sb = getSupabase();
   const receiver = getServerId(receiverHandle);
   if (!sb || !myProfileId || !receiver) return;
   try {
-    await sb.from('signals').insert({ sender: myProfileId, receiver, compat_score: score });
+    await sb.from('signals').insert({ sender: myProfileId, receiver, compat_score: score, source });
   } catch { /* 중복 신호 등은 무시 */ }
 }
 
@@ -201,21 +203,21 @@ export async function subscribeMessages(handle: string, onMsg: (m: ServerMsg) =>
 
 // ── 실유저 수신 신호 ──────────────────────────────────
 
-export interface IncomingSignal { signalId: number; profile: SeedProfile; score: number; }
+export interface IncomingSignal { signalId: number; profile: SeedProfile; score: number; source: 'deck' | 'selso'; }
 
 export async function fetchIncomingSignals(): Promise<IncomingSignal[]> {
   const sb = getSupabase();
   if (!sb || !myProfileId) return [];
   try {
     const { data, error } = await sb.from('signals')
-      .select(`id, compat_score, sender:profiles!signals_sender_fkey(${PROFILE_COLUMNS})`)
+      .select(`id, compat_score, source, sender:profiles!signals_sender_fkey(${PROFILE_COLUMNS})`)
       .eq('receiver', myProfileId).eq('status', 'pending');
     if (error || !data) return [];
     return data.map((r) => {
       const row = r.sender as unknown as ProfileRow;
       const profile = rowToProfile(row);
       upsertProfile(profile, row.id); // 앱 로드 후 가입한 유저도 채팅/궁합 가능하도록 편입
-      return { signalId: r.id as number, profile, score: r.compat_score as number };
+      return { signalId: r.id as number, profile, score: r.compat_score as number, source: ((r as { source?: string }).source === 'selso' ? 'selso' : 'deck') };
     });
   } catch {
     return [];

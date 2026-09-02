@@ -63,14 +63,14 @@ export default function Inbox() {
       <Header title="관심함" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
         <Sect label="받은 신호" style={{ marginTop: 6 }} />
-        {srvIncoming.map(({ signalId, profile: p, score }) => (
+        {srvIncoming.map(({ signalId, profile: p, score, source }) => (
           <View key={`srv-${signalId}`} style={s.row}>
             <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}><Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} blurred={!!p.photoUrl} /></Pressable>
             <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={s.nm}>{p.name}</Text>
                 <Chip label={`궁합 ${score}`} tone="good" />
-                <Chip label="실유저" tone="acc" />
+                <Chip label={source === 'selso' ? '셀소 좋아요' : '실유저'} tone="acc" />
               </View>
               <Text style={s.ds}>{p.job} · {p.intro || '진지한 만남을 찾고 있어요'}</Text>
             </Pressable>

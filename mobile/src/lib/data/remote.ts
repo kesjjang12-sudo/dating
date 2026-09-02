@@ -3,7 +3,7 @@
 
 import { getSupabase } from '../supabase';
 import { FeedPost, SeedProfile } from './profiles';
-import { DeckPin, setPins, setServerIds } from './registry';
+import { DeckPin, setPins, setServerIds, upsertProfile } from './registry';
 
 const TIMEOUT_MS = 5000;
 
@@ -103,6 +103,7 @@ function timeLabel(iso: string): string {
 interface PostRow {
   id: number; category: string; title: string; body: string;
   likes: number; views: number; created_at: string;
+  anonymous?: boolean; author?: ProfileRow | null;
 }
 
 export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
@@ -111,33 +112,40 @@ export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
   try {
     const { data, error } = await withTimeout(
       supabase.from('posts')
-        .select('id,category,title,body,likes,views,created_at')
+        .select(`id,category,title,body,likes,views,created_at,anonymous,author:profiles!posts_author_fkey(${PROFILE_COLUMNS})`)
         .order('created_at', { ascending: false })
         .limit(30)
     );
     if (error || !data || data.length === 0) return null;
-    return (data as PostRow[]).map((r) => ({
-      id: `srv-${r.id}`,
-      cat: r.category,
-      title: r.title,
-      body: r.body,
-      likes: r.likes,
-      comments: 0,
-      views: r.views,
-      timeLabel: timeLabel(r.created_at),
-    }));
+    return (data as unknown as PostRow[]).map((r) => {
+      const author = !r.anonymous && r.author ? rowToProfile(r.author) : null;
+      if (author && r.author) upsertProfile(author, r.author.id); // 셀소 작성자를 레지스트리에 편입 → 프로필·궁합 열람 가능
+      return {
+        id: `srv-${r.id}`,
+        cat: r.category,
+        title: r.title,
+        body: r.body,
+        likes: r.likes,
+        comments: 0,
+        views: r.views,
+        timeLabel: timeLabel(r.created_at),
+        anonymous: r.anonymous ?? true,
+        authorHandle: author?.id,
+        authorName: author?.name,
+      };
+    });
   } catch {
     return null;
   }
 }
 
 /** 데모 글쓰기(비인증) — posts_insert_demo 정책 필요. 실패해도 앱은 로컬로 유지 */
-export async function submitRemotePost(cat: string, title: string, body: string): Promise<boolean> {
+export async function submitRemotePost(cat: string, title: string, body: string, anonymous = true, authorId?: string): Promise<boolean> {
   const supabase = getSupabase();
   if (!supabase) return false;
   try {
     const { error } = await withTimeout(
-      supabase.from('posts').insert({ category: cat, title, body, anonymous: true })
+      supabase.from('posts').insert(anonymous || !authorId ? { category: cat, title, body, anonymous: true } : { category: cat, title, body, anonymous: false, author: authorId })
     );
     return !error;
   } catch {

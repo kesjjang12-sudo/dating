@@ -1,13 +1,15 @@
 // 피드 — 사주·연애 커뮤니티. 카테고리 필터, 좋아요, 글쓰기.
 
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Avatar } from '../../components/Avatar';
 import { Header } from '../../components/Header';
 import { Sheet, SheetTitle } from '../../components/Sheet';
 import { Btn } from '../../components/ui';
-import { useApp } from '../../lib/store';
+import { profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
 const CATS = ['전체', '고민상담', '사주풀이', '자유', '셀소'];
@@ -39,13 +41,21 @@ export default function Feed() {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 90, paddingTop: 4 }}>
         {shown.map((p) => (
-          <View key={p.id} style={s.post}>
+          <Pressable key={p.id} style={({ pressed }) => [s.post, pressed && { opacity: 0.85 }]} onPress={() => router.push({ pathname: '/post/[id]', params: { id: p.id } })}>
             <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-              <Text style={s.cat}>{p.cat}</Text>
+              <Text style={[s.cat, p.cat === '셀소' && { color: C.accentDeep }]}>{p.cat}</Text>
               {p.mine && <Text style={s.mine}>내 글</Text>}
+              <Text style={s.who}>{p.anonymous === false && p.authorName ? p.authorName : '익명'}</Text>
             </View>
             <Text style={s.title}>{p.title}</Text>
-            <Text style={s.body}>{p.body}</Text>
+            <Text style={s.body} numberOfLines={3}>{p.body}</Text>
+            {p.cat === '셀소' && p.authorHandle && (
+              <View style={s.authorRow}>
+                <Avatar colors={profileById(p.authorHandle).colors} initial={(p.authorName ?? '?')[0]} size={28} photoUrl={profileById(p.authorHandle).photoUrl} blurred={!!profileById(p.authorHandle).photoUrl} />
+                <Text style={s.authorTxt}>{p.authorName} · {profileById(p.authorHandle).job || '프로필 보기'}</Text>
+                <Text style={s.authorCta}>프로필·궁합 · 좋아요 ›</Text>
+              </View>
+            )}
             <View style={s.meta}>
               <Pressable onPress={() => toggleLike(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Ionicons name={p.liked ? 'thumbs-up' : 'thumbs-up-outline'} size={14} color={p.liked ? C.accent : C.faint} />
@@ -61,7 +71,7 @@ export default function Feed() {
               </View>
               <Text style={[s.metaTxt, { marginLeft: 'auto' }]}>{p.timeLabel}</Text>
             </View>
-          </View>
+          </Pressable>
         ))}
       </ScrollView>
 
@@ -79,6 +89,7 @@ export default function Feed() {
             </Pressable>
           ))}
         </View>
+        <Text style={s.writeNote}>{wCat === '셀소' ? '셀소는 닉네임과 프로필이 공개돼요. 상대가 좋아요를 누르면 관심함에 도착하고, 연결하면 채팅이 열려요.' : '익명으로 등록돼요. 닉네임·프로필은 보이지 않아요.'}</Text>
         <TextInput style={s.input} placeholder="제목" placeholderTextColor={C.faint} value={wTitle} onChangeText={setWTitle} maxLength={60} />
         <TextInput
           style={[s.input, { height: 110, textAlignVertical: 'top' }]} multiline
@@ -105,6 +116,11 @@ const s = StyleSheet.create({
   chipTxt: { fontSize: 13, fontWeight: '600', color: C.muted },
   post: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.lg, padding: 16, marginBottom: 10 },
   cat: { fontSize: 11.5, fontWeight: '700', color: C.indigo },
+  who: { fontSize: 11.5, color: C.faint, marginLeft: 'auto' },
+  authorRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.line },
+  authorTxt: { flex: 1, fontSize: 12.5, color: C.ink, fontWeight: '600' },
+  authorCta: { fontSize: 12, color: C.accentDeep, fontWeight: '700' },
+  writeNote: { fontSize: 12.5, color: C.muted, lineHeight: 18, marginBottom: 10 },
   mine: { fontSize: 11, fontWeight: '700', color: C.accentDeep, backgroundColor: C.accentSoft, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' },
   title: { fontSize: 15.5, fontWeight: '700', color: C.ink, marginTop: 6, marginBottom: 4 },
   body: { fontSize: 13.5, color: C.muted, lineHeight: 21 },
