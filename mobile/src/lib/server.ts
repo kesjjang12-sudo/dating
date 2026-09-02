@@ -261,7 +261,10 @@ export async function acceptSignal(signalId: number): Promise<boolean> {
 
 // ── 블라인드 얼굴 공개 ────────────────────────────────
 
-export interface RevealState { mine: boolean; theirs: boolean; revealed: boolean; }
+export interface RevealState {
+  mine: boolean; theirs: boolean; revealed: boolean;
+  mineMsgs: number; theirMsgs: number; required: number; eligible: boolean; // 대화 후 공개 — 양쪽 각 required 마디 이상
+}
 
 export async function revealState(handle: string): Promise<RevealState | null> {
   const sb = getSupabase();

@@ -60,6 +60,8 @@ export default function Chat() {
       const poll = setInterval(async () => {
         const upd = await fetchServerMessages(id);
         if (alive && upd) merge(upd);
+        const r = await revealState(id); // 대화 수·상대 제안 반영
+        if (alive && r) setReveal(r);
       }, 8000);
       const prev = cleanup;
       cleanup = () => { clearInterval(poll); prev?.(); };
@@ -82,7 +84,7 @@ export default function Chat() {
     if (live) {
       pendingEcho.current.push(t);
       setSrvMsgs((cur) => [...(cur ?? []), { from: 'me', text: t, ts: Date.now() }]);
-      void serverSendMessage(id, t);
+      void serverSendMessage(id, t).then(() => revealState(id)).then((r) => { if (r) setReveal(r); });
       return;
     }
     sendMessage(id, t);
@@ -109,24 +111,39 @@ export default function Chat() {
         </Pressable>
       </View>
 
-      {live && reveal && !reveal.revealed && (
-        <View style={s.revealBar}>
-          <Text style={s.revealTxt}>
-            {reveal.mine ? '내 공개 완료 — 상대의 수락을 기다리는 중이에요' : '사주로 이어진 인연 — 서로 동의하면 얼굴이 공개돼요'}
-          </Text>
-          {!reveal.mine && (
-            <Btn
-              label="얼굴 공개하기" small
-              onPress={async () => {
-                const r = await revealFace(id);
-                if (!r) { showToast('잠시 후 다시 시도해 주세요'); return; }
-                setReveal(r);
-                showToast(r.revealed ? '서로 얼굴이 공개됐어요! 🎉' : '공개 완료 — 상대가 수락하면 서로 보여요');
-              }}
-            />
-          )}
-        </View>
-      )}
+      {live && reveal && !reveal.revealed && (() => {
+        // 얼굴 공개는 대화 후에: 양쪽이 각 required 마디 이상 나눠야 제안/수락 가능 (서버가 강제)
+        const req = reveal.required ?? 3;
+        const doReveal = async () => {
+          const r = await revealFace(id);
+          if (!r) { showToast('아직 대화가 더 필요해요 — 잠시 후 다시 시도해 주세요'); return; }
+          setReveal(r);
+          showToast(r.revealed ? '서로 얼굴이 공개됐어요! 🎉' : '공개를 제안했어요 — 상대가 수락하면 서로 보여요');
+        };
+        if (reveal.mine) return (
+          <View style={s.revealBar}><Text style={s.revealTxt}>얼굴 공개를 제안했어요 — {p.name}님이 수락하면 서로 보여요</Text></View>
+        );
+        if (!reveal.eligible) return (
+          <View style={s.revealBar}>
+            <Text style={s.revealTxt}>
+              사주로 먼저 대화해요 — 서로 {req}마디 이상 나누면 얼굴 공개를 제안할 수 있어요{'\n'}
+              <Text style={{ fontWeight: '400' }}>나 {Math.min(reveal.mineMsgs ?? 0, req)}/{req} · {p.name} {Math.min(reveal.theirMsgs ?? 0, req)}/{req}</Text>
+            </Text>
+          </View>
+        );
+        if (reveal.theirs) return (
+          <View style={s.revealBar}>
+            <Text style={s.revealTxt}>{p.name}님이 얼굴 공개를 제안했어요 — 수락하면 서로의 얼굴이 보여요</Text>
+            <Btn label="수락하기" small onPress={doReveal} />
+          </View>
+        );
+        return (
+          <View style={s.revealBar}>
+            <Text style={s.revealTxt}>충분히 대화했어요 — 서로 마음이 통했다면 얼굴 공개를 제안해 보세요</Text>
+            <Btn label="얼굴 공개 제안" small onPress={doReveal} />
+          </View>
+        );
+      })()}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={8}>
         <FlatList
