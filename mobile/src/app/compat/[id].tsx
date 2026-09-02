@@ -17,6 +17,7 @@ import {
 } from '../../lib/saju/ganzhi';
 import { fromDateString } from '../../lib/saju/manseryeok';
 import { fullReading, PersonAnalysis, Section } from '../../lib/saju/reading';
+import { ElementRow, extraReading, YearRow } from '../../lib/saju/reading2';
 import { profileById, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
@@ -37,10 +38,14 @@ export default function CompatDetail() {
   const p = id ? profileById(id) : null;
   const reading = useMemo(() => {
     if (!user || !p) return null;
-    return fullReading(
-      { name: user.name, gender: user.gender, pillars: fromDateString(user.birth, user.hourBranch), birth: parseBirth(user.birth) },
-      { name: p.name, gender: p.gender, pillars: fromDateString(p.birth, p.hourBranch), birth: parseBirth(p.birth) },
+    const mePil = fromDateString(user.birth, user.hourBranch), themPil = fromDateString(p.birth, p.hourBranch);
+    const meB = parseBirth(user.birth), themB = parseBirth(p.birth);
+    const base = fullReading(
+      { name: user.name, gender: user.gender, pillars: mePil, birth: meB },
+      { name: p.name, gender: p.gender, pillars: themPil, birth: themB },
     );
+    const extra = extraReading(base.me, base.them, base.relations, base.compat, meB, themB, mePil, themPil);
+    return { ...base, extra };
   }, [user, p]);
 
   if (!id || !user || !p || !reading) return null;
@@ -108,8 +113,12 @@ export default function CompatDetail() {
             <SumCell k="반기는 기운" v={them.favorable.join(' · ')} />
           </View>
           {reading.themSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+          {reading.extra.themMore.map((sec) => <Topic key={sec.key} sec={sec} />)}
 
-          <SecLabel n="三" label="두 사주 사이의 글자" />
+          <SecLabel n="三" label={`${user.name}님의 사주`} />
+          {reading.extra.meSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+
+          <SecLabel n="四" label="두 사주 사이의 글자" />
           <View style={s.relBox}>
             {reading.relations.length === 0 && <Text style={s.relEmpty}>두 명식 사이에 합·충이 없습니다 — 기운의 간섭이 적은 담담한 인연이에요.</Text>}
             {reading.relations.map((r, i) => (
@@ -123,11 +132,24 @@ export default function CompatDetail() {
             ))}
           </View>
 
-          <SecLabel n="四" label="두 사람의 궁합" />
-          {reading.coupleSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+          <SecLabel n="五" label={`${p.name}님은 나에게`} />
+          {reading.extra.relationSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+          <Text style={s.tblTitle}>오행 보완표 — 나 · {p.name}</Text>
+          <ElementTable rows={reading.extra.elementTable} />
 
-          <SecLabel n="五" label="시기 — 대운과 올해" />
+          <SecLabel n="六" label="두 사람의 궁합" />
+          {reading.coupleSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+          {reading.extra.stageSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+
+          <SecLabel n="七" label="시기 — 대운·세운·이달" />
           {reading.timingSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
+          {reading.extra.timingSections.slice(0, 1).map((sec) => <Topic key={sec.key} sec={sec} />)}
+          <Text style={s.tblTitle}>앞으로 3년 세운</Text>
+          <YearTable rows={reading.extra.timing.years} me={user.name} them={p.name} />
+          {reading.extra.timingSections.slice(1).map((sec) => <Topic key={sec.key} sec={sec} />)}
+
+          <SecLabel n="八" label="총평" />
+          <View style={s.sumBox}><Topic sec={reading.extra.summary} /></View>
 
           <Text style={s.foot}>
             명식은 절기 입기 시각을 태양 황경으로 계산한 만세력 기준이며, 십신은 지지 본기, 십이운성은 음간 역행 기준입니다.
@@ -174,6 +196,39 @@ function Topic({ sec }: { sec: Section }) {
       <Text style={s.topicLab}>{sec.label}</Text>
       <Text style={s.topicH}>{sec.title}</Text>
       {sec.paras.map((t, i) => <Text key={i} style={s.topicP}>{t}</Text>)}
+    </View>
+  );
+}
+
+function ElementTable({ rows }: { rows: ElementRow[] }) {
+  return (
+    <View style={s.tbl}>
+      {rows.map((r, i) => (
+        <View key={r.el} style={[s.tblRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+          <Text style={[s.tblEl, { color: EL_COLOR[r.el] }]}>{r.el}</Text>
+          <Text style={s.tblNum}>{r.mine} · {r.theirs}</Text>
+          <Text style={[s.tblNote, r.tone === 'good' && { color: C.good }, r.tone === 'warn' && { color: C.coin }]}>{r.note}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function YearTable({ rows, me, them }: { rows: YearRow[]; me: string; them: string }) {
+  return (
+    <View style={s.tbl}>
+      {rows.map((r, i) => (
+        <View key={r.year} style={[s.yrRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+          <View style={{ width: 74 }}>
+            <Text style={s.yrY}>{r.year}</Text>
+            <Text style={s.yrG}>{STEMS_HANJA[r.pillar.stem]}{BRANCHES_HANJA[r.pillar.branch]}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={s.yrLine}><Text style={s.yrWho}>{me}</Text>  {r.me}</Text>
+            <Text style={s.yrLine}><Text style={s.yrWho}>{them}</Text>  {r.them}</Text>
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -281,6 +336,18 @@ const s = StyleSheet.create({
   relPair: { fontSize: 13, color: C.ink, fontWeight: '600' },
   relDesc: { fontSize: 13.5, color: C.muted, lineHeight: 21 },
   relEmpty: { padding: 16, fontSize: 13.5, color: C.muted, lineHeight: 21 },
+  tblTitle: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 18, marginBottom: 8 },
+  tbl: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.md, overflow: 'hidden' },
+  tblRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 10 },
+  tblEl: { width: 22, fontFamily: F.serif, fontSize: 17 },
+  tblNum: { width: 44, fontSize: 12.5, color: C.muted, fontVariant: ['tabular-nums'] },
+  tblNote: { flex: 1, fontSize: 12.5, color: C.ink, lineHeight: 18 },
+  yrRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 11 },
+  yrY: { fontSize: 12.5, color: C.muted, fontVariant: ['tabular-nums'] },
+  yrG: { fontFamily: F.serif, fontSize: 18, color: C.ink, marginTop: 1 },
+  yrLine: { fontSize: 12.5, color: C.ink, lineHeight: 18 },
+  yrWho: { fontWeight: '700', color: C.accentDeep },
+  sumBox: { backgroundColor: C.accentSoft, borderRadius: R.lg, paddingHorizontal: 16, marginTop: 4 },
   foot: { fontSize: 12, color: C.faint, lineHeight: 19, marginTop: 30, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.line },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 14, paddingBottom: 22, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.line },
 });

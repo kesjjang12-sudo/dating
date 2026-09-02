@@ -17,7 +17,7 @@ const EUL = (w: string) => hasFinal(w) ? "을" : "를";
 const IRA = (w: string) => hasFinal(w) ? "이라" : "라";
 
 // ── 기초 표 ──────────────────────────────────────────────
-const MAIN_QI = [9, 5, 0, 1, 4, 2, 3, 5, 6, 7, 4, 8]; // 지지 본기 천간
+export const MAIN_QI = [9, 5, 0, 1, 4, 2, 3, 5, 6, 7, 4, 8]; // 지지 본기 천간
 const HIDDEN: number[][] = [[8, 9], [9, 7, 5], [4, 2, 0], [0, 1], [1, 9, 4], [4, 6, 2], [2, 5, 3], [3, 1, 5], [4, 8, 6], [6, 7], [7, 3, 4], [4, 0, 8]];
 const GEN: Record<Element, Element> = { 목: '화', 화: '토', 토: '금', 금: '수', 수: '목' };
 const CTRL: Record<Element, Element> = { 목: '토', 토: '수', 수: '화', 화: '금', 금: '목' };
@@ -26,7 +26,7 @@ const CTRL_BY: Record<Element, Element> = { 토: '목', 수: '토', 화: '수', 
 const STAGES = ['장생', '목욕', '관대', '건록', '제왕', '쇠', '병', '사', '묘', '절', '태', '양'];
 const STAGE_START = [11, 6, 2, 9, 2, 9, 5, 0, 8, 3];
 const GONGMANG = [[10, 11], [8, 9], [6, 7], [4, 5], [2, 3], [0, 1]];
-const CHEONEUL: number[][] = [[1, 7], [0, 8], [11, 9], [11, 9], [1, 7], [0, 8], [1, 7], [2, 6], [5, 3], [5, 3]];
+export const CHEONEUL: number[][] = [[1, 7], [0, 8], [11, 9], [11, 9], [1, 7], [0, 8], [1, 7], [2, 6], [5, 3], [5, 3]];
 const MUNCHANG = [5, 6, 8, 9, 8, 9, 11, 0, 2, 3];
 const HONGYEOM = [6, 8, 2, 7, 4, 4, 10, 9, 0, 8];
 const TRI_GROUPS = [[8, 0, 4], [2, 6, 10], [5, 9, 1], [11, 3, 7]];
@@ -36,7 +36,8 @@ const WONJIN: [number, number][] = [[0, 7], [1, 6], [2, 9], [3, 8], [4, 11], [5,
 
 export type Sipsin = '비견' | '겁재' | '식신' | '상관' | '편재' | '정재' | '편관' | '정관' | '편인' | '정인';
 type Group = '비겁' | '식상' | '재성' | '관성' | '인성';
-const GROUP_OF: Record<Sipsin, Group> = {
+export type { Group };
+export const GROUP_OF: Record<Sipsin, Group> = {
   비견: '비겁', 겁재: '비겁', 식신: '식상', 상관: '식상', 편재: '재성', 정재: '재성', 편관: '관성', 정관: '관성', 편인: '인성', 정인: '인성',
 };
 
@@ -49,7 +50,7 @@ export function sipsin(dayStem: number, other: number): Sipsin {
   if (CTRL[oe] === de) return same ? '편관' : '정관';
   return same ? '편인' : '정인';
 }
-const sipsinB = (d: number, b: number) => sipsin(d, MAIN_QI[b]);
+export const sipsinB = (d: number, b: number) => sipsin(d, MAIN_QI[b]);
 export const stage12 = (d: number, b: number): string =>
   STAGES[stemIsYang(d) ? (b - STAGE_START[d] + 12) % 12 : (STAGE_START[d] - b + 12) % 12];
 const triOf = (b: number) => TRI_GROUPS.findIndex((g) => g.includes(b));
@@ -78,7 +79,7 @@ export interface FullReading {
 }
 
 // ── 일간 캐릭터 ─────────────────────────────────────────
-const DM: Record<number, { nick: string; who: string; love: string }> = {
+export const DM: Record<number, { nick: string; who: string; love: string }> = {
   0: { nick: '큰 나무', who: '갑목(甲木)은 하늘로 곧게 자라는 큰 나무입니다. 이 일간의 사람은 앞장서는 기질이 있고, 옳다고 믿는 방향으로 밀고 가며, 굽히는 걸 잘 못 합니다. 리더 기질과 고집이 한 몸이에요. 남 밑에서 오래 있기보다 제 그늘을 만들어 사람을 품는 쪽이 어울립니다.', love: '좋아하면 직진합니다. 밀당이 서툴고, 한번 마음을 정하면 잘 안 바꿉니다. 대신 상대를 자기 방식으로 끌고 가려는 습관이 있어 — 상대에게 숨 쉴 틈을 주는 연습이 필요해요.' },
   1: { nick: '풀과 덩굴', who: '을목(乙木)은 바위 틈에서도 뻗어나가는 풀과 덩굴입니다. 겉은 유연하고 부드럽지만 생명력이 질기고, 어떤 환경에도 적응합니다. 사람을 잘 읽고 분위기를 맞추는 데 능하며, 정면으로 부딪히는 대신 돌아가는 법을 알아요. 실속을 챙기는 현실감각이 있습니다.', love: '상대에게 맞춰 주며 관계를 이어가는 편입니다. 다정하고 눈치가 빠른데, 그만큼 속마음을 다 보이지 않아요. 기댈 나무(든든한 상대)를 찾는 성향이 있습니다.' },
   2: { nick: '태양', who: '병화(丙火)는 만물을 비추는 태양입니다. 밝고 화통하고 숨기는 게 없어요. 어디서든 존재감이 있고, 사람들 한가운데서 힘이 나며, 그늘진 사람을 밝혀 주는 재능이 있습니다. 대신 감정이 얼굴에 다 드러나고, 뒤끝은 없지만 순간 화력은 세요.', love: '표현이 크고 시원합니다. 좋아하면 온 세상이 알게 되고, 상대를 아낌없이 비춰 줍니다. 다만 태양은 한 사람만 비추는 법을 모르는 별이라 — 질투 많은 상대와는 부딪힐 수 있어요.' },
