@@ -10,7 +10,9 @@ export interface SeedProfile {
   distKm: number;
   tags: string[];
   colors: [string, string];  // 아바타 그라디언트 (사진 없을 때)
-  photoUrl?: string;         // 프로필 사진 (Storage 공개 URL) — 매칭 후 상호 동의 전엔 블러
+  photoUrl?: string;         // 프로필 사진 (Storage 공개 URL) — 매칭 후 상호 동의 전엔 블러. 반려(rejected)면 비움
+  photoStatus?: string;      // none | pending | auto_ok | approved | rejected
+  photoRejectReason?: string | null;
   lat?: number | null;
   lng?: number | null;
   intro: string;

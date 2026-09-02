@@ -93,3 +93,21 @@ order by l.created_at desc limit 50;
 - [x] Storage: 프로필 사진 `avatars` 버킷 (본인 폴더만 쓰기, 검수 큐는 남음)
 - [ ] Edge Function 이관: 추천 덱 서버 계산, 운세 중복 방지 강화
 - [ ] 계정 복구: 익명 → 이메일/전화 승격 (`linkIdentity`) — 현재는 브라우저 데이터 삭제 시 계정 유실
+
+## 프로필 사진 검수
+
+업로드 시 브라우저에서 얼굴 인식(MediaPipe Face Detector)으로 **얼굴 없음 · 2명 이상 · 너무 멀리(얼굴 폭 < 18%) · 측면 · 흐림**을 걸러
+등록 자체를 막고 사유를 안내한다(`mobile/src/lib/facecheck.ts`, 기준값은 `FACE_RULES`). 통과한 사진은 `photo_status='auto_ok'`와
+측정치(`photo_check`)가 함께 기록되고, 모델 로드가 실패한 경우엔 `pending`으로 올라와 운영자 확인을 기다린다.
+
+```sql
+-- 검수 큐 (pending 먼저, 미검수 순)
+select * from photo_review_queue;
+
+-- 승인 / 반려 (반려하면 사진이 모든 화면에서 숨겨지고, 본인 마이 탭에 사유가 표시된다)
+update profiles set photo_status = 'approved', photo_reviewed_at = now() where handle = 'u_xxxxxxxx';
+update profiles set photo_status = 'rejected', photo_reject_reason = '측면 사진', photo_reviewed_at = now() where handle = 'u_xxxxxxxx';
+```
+
+반려된 사진으로는 사진 미션 보상(+50)을 받을 수 없다. 클라이언트 검수는 우회가 가능하므로 `auto_ok`도 큐에 남겨 두고 주기적으로 훑는 것을 전제로 한다.
+서버측 자동 검수(Edge Function)는 이후 과제.

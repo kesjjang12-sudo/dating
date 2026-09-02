@@ -360,7 +360,9 @@ export function base64ToBytes(b64: string): Uint8Array {
 }
 
 /** 아바타 업로드 → 프로필에 반영 → 공개 URL 반환 */
-export async function uploadAvatar(base64: string, contentType: string): Promise<string | null> {
+export type PhotoStatus = 'none' | 'pending' | 'auto_ok' | 'approved' | 'rejected';
+
+export async function uploadAvatar(base64: string, contentType: string, check?: { status: PhotoStatus; metrics?: unknown }): Promise<string | null> {
   const sb = getSupabase();
   if (!sb || !myAuthId || !myProfileId) return null;
   try {
@@ -371,7 +373,10 @@ export async function uploadAvatar(base64: string, contentType: string): Promise
     const { error } = await sb.storage.from('avatars').upload(path, bytes, { contentType });
     if (error) return null;
     const url = sb.storage.from('avatars').getPublicUrl(path).data.publicUrl;
-    await sb.from('profiles').update({ photos: [url] }).eq('id', myProfileId);
+    await sb.from('profiles').update({
+      photos: [url], photo_status: check?.status ?? 'pending', photo_check: (check?.metrics as object) ?? null,
+      photo_reject_reason: null, photo_reviewed_at: null,
+    }).eq('id', myProfileId);
     return url;
   } catch {
     return null;
@@ -388,6 +393,38 @@ export async function serverUpdateProfile(f: import('./profile').ProfileFields):
       region: f.region ?? null, goal: f.goal ?? null, drink: f.drink ?? null, smoke: f.smoke ?? null,
       mbti: f.mbti ?? null, tags: f.tags ?? [], answers: f.answers ?? [],
     }).eq('id', myProfileId);
+    return !error;
+  } catch { return false; }
+}
+
+// ── 커뮤니티 댓글 ────────────────────────────────────────
+export interface PostComment { id: number; body: string; anonymous: boolean; anonNo: number | null; authorHandle: string | null; authorName: string | null; mine: boolean; createdAt: string; }
+
+/** 서버 글 id ('srv-123' → 123) */
+export const postServerId = (postId: string): number | null => (postId.startsWith('srv-') ? Number(postId.slice(4)) : null);
+
+export async function fetchComments(postId: string): Promise<PostComment[]> {
+  const sb = getSupabase(); const pid = postServerId(postId);
+  if (!sb || pid === null) return [];
+  try {
+    const { data, error } = await sb.from('post_comments')
+      .select('id, body, anonymous, anon_no, author, created_at, prof:profiles!post_comments_author_fkey(handle, nickname)')
+      .eq('post_id', pid).order('created_at', { ascending: true });
+    if (error || !data) return [];
+    return (data as unknown as { id: number; body: string; anonymous: boolean; anon_no: number | null; author: string | null; created_at: string; prof: { handle: string; nickname: string } | null }[]).map((r) => ({
+      id: r.id, body: r.body, anonymous: r.anonymous, anonNo: r.anon_no,
+      authorHandle: r.anonymous ? null : r.prof?.handle ?? null, authorName: r.anonymous ? null : r.prof?.nickname ?? null,
+      mine: !!myProfileId && r.author === myProfileId, createdAt: r.created_at,
+    }));
+  } catch { return []; }
+}
+
+/** 댓글 작성 — 셀소 글이면 닉네임 공개(anonymous=false), 그 외 익명 */
+export async function addComment(postId: string, body: string, anonymous: boolean): Promise<boolean> {
+  const sb = getSupabase(); const pid = postServerId(postId);
+  if (!sb || pid === null || !myProfileId) return false;
+  try {
+    const { error } = await sb.from('post_comments').insert({ post_id: pid, author: myProfileId, anonymous, body });
     return !error;
   } catch { return false; }
 }

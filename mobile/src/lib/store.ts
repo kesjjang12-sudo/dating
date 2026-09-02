@@ -23,6 +23,8 @@ export interface UserInfo {
   hourBranch: number | null; // 시진, null=미상
   hourEdits: number;         // 출생시간 수정 횟수 (최대 2)
   photoUrl?: string | null;  // 내 프로필 사진 (Storage 공개 URL)
+  photoStatus?: string;      // 검수 상태 none | pending | auto_ok | approved | rejected
+  photoRejectReason?: string | null;
   profile?: ProfileFields;   // 계정 프로필 (서버와 동기화)
 }
 
@@ -80,7 +82,7 @@ interface AppState {
   toggleLike: (id: string) => void;
   likeSelso: (handle: string) => boolean; // 셀소 작성자에게 좋아요(무료 신호) — 이미 보냈으면 false
   editHour: (hourBranch: number | null) => boolean;
-  setPhotoUrl: (url: string) => void;
+  setPhotoUrl: (url: string, status?: string) => void;
   saveProfile: (f: ProfileFields) => Promise<boolean>;
   hydrateMyProfile: () => void;
   setMyCoords: (c: { lat: number; lng: number }) => void;
@@ -191,8 +193,11 @@ export const useApp = create<AppState>()(
           compatCache.clear();
         }
         if (posts) {
+          // 내 글은 서버 사본과 합친다 (같은 id면 서버 사본을 쓰되 mine 표시 유지)
           const mine = get().posts.filter((p) => p.mine);
-          set({ posts: [...mine, ...posts] });
+          const mineIds = new Set(mine.map((p) => p.id));
+          const merged = posts.map((p) => (mineIds.has(p.id) ? { ...p, mine: true } : p));
+          set({ posts: [...mine.filter((m) => !posts.some((p) => p.id === m.id)), ...merged] });
         }
         if (profiles || posts) set({ remoteReady: true });
       },
@@ -341,7 +346,10 @@ export const useApp = create<AppState>()(
           anonymous, authorHandle: anonymous ? undefined : me ?? undefined, authorName: anonymous ? undefined : get().user?.name,
         };
         set({ posts: [post, ...get().posts] });
-        void submitRemotePost(cat, title, body, anonymous, anonymous ? undefined : getMyProfileId() ?? undefined); // best-effort
+        // 서버 등록 성공 시 임시 id를 서버 id로 치환 → 작성자 화면에서도 댓글·중복 없이 동작
+        void submitRemotePost(cat, title, body, anonymous, anonymous ? undefined : getMyProfileId() ?? undefined).then((sid) => {
+          if (sid) set({ posts: get().posts.map((p) => (p.id === post.id ? { ...p, id: sid } : p)) });
+        });
       },
 
       likeSelso: (handle) => {
@@ -387,12 +395,14 @@ export const useApp = create<AppState>()(
           goal: row.goal, drink: row.drink, smoke: row.smoke, mbti: row.mbti, tags: row.tags?.length ? row.tags : undefined, answers: row.answers,
         };
         const merged: ProfileFields = { ...fromServer, ...(user.profile ?? {}) };
-        set({ user: { ...user, profile: merged, photoUrl: user.photoUrl ?? row.photoUrl ?? null } });
+        // 사진 검수 상태는 서버가 진실 (운영자 반려 반영)
+        const rejected = row.photoStatus === 'rejected';
+        set({ user: { ...user, profile: merged, photoUrl: rejected ? null : (user.photoUrl ?? row.photoUrl ?? null), photoStatus: row.photoStatus ?? user.photoStatus, photoRejectReason: row.photoRejectReason ?? null } });
       },
 
-      setPhotoUrl: (url) => {
+      setPhotoUrl: (url, status) => {
         const { user } = get();
-        if (user) set({ user: { ...user, photoUrl: url } });
+        if (user) set({ user: { ...user, photoUrl: url, photoStatus: status ?? user.photoStatus, photoRejectReason: null } });
       },
 
       setMyCoords: (c) => set({ myCoords: c }),

@@ -13,6 +13,7 @@ import { StoreSheet } from '../../components/StoreSheet';
 import { Btn, Chip } from '../../components/ui';
 import { EARN, PASS_PRICE } from '../../lib/economy';
 import { BRANCHES_KO, HOUR_RANGES, pillarKo } from '../../lib/saju/ganzhi';
+import { checkFacePhoto } from '../../lib/facecheck';
 import { applyReferral, claimMissionPhoto, getMyHandle, uploadAvatar } from '../../lib/server';
 import { myPillars, useApp } from '../../lib/store';
 import { completeness } from '../../lib/profile';
@@ -29,6 +30,7 @@ export default function My() {
   const resetAll = useApp((st) => st.resetAll);
   const showToast = useApp((st) => st.showToast);
   const [uploading, setUploading] = useState(false);
+  const [checkMsg, setCheckMsg] = useState<string | null>(null);
   const [refCode, setRefCode] = useState('');
   const missionPhotoClaimed = useApp((st) => st.missionPhotoClaimed);
   const referralApplied = useApp((st) => st.referralApplied);
@@ -44,10 +46,17 @@ export default function My() {
       mediaTypes: ['images'], quality: 0.8, base64: true, allowsEditing: true, aspect: [1, 1],
     });
     if (res.canceled || !res.assets[0]?.base64) return;
+    const mime = res.assets[0].mimeType ?? 'image/jpeg';
     setUploading(true);
-    const url = await uploadAvatar(res.assets[0].base64, res.assets[0].mimeType ?? 'image/jpeg');
+    // 1) 자동 검수 — 얼굴 없음·2명 이상·너무 멀리·측면·흐림이면 등록 자체를 막는다
+    setCheckMsg('사진을 검수하고 있어요…');
+    const check = await checkFacePhoto(`data:${mime};base64,${res.assets[0].base64}`);
+    setCheckMsg(null);
+    if (check.status === 'rejected') { setUploading(false); showToast(check.reason ?? '이 사진은 등록할 수 없어요'); return; }
+    // 2) 업로드 + 검수 결과 기록 (모델 로드 실패 시 pending → 운영자 검수 대기)
+    const url = await uploadAvatar(res.assets[0].base64, mime, { status: check.status === 'auto_ok' ? 'auto_ok' : 'pending', metrics: check.metrics });
     setUploading(false);
-    if (url) { setPhotoUrl(url); showToast('프로필 사진이 등록됐어요 — 상대에게도 보여요'); }
+    if (url) { setPhotoUrl(url, check.status === 'auto_ok' ? 'auto_ok' : 'pending'); showToast(check.status === 'auto_ok' ? '정면 사진 확인 완료 — 프로필 사진이 등록됐어요' : '사진을 등록했어요 — 검수 후 상대에게 보여요'); }
     else showToast('업로드에 실패했어요 — 잠시 후 다시 시도해 주세요');
   };
 
@@ -100,8 +109,14 @@ export default function My() {
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
         <Btn label={pct >= 100 ? '프로필 편집' : `프로필 완성하기 ${pct}%`} small style={{ flex: 1 }} onPress={() => router.push('/profile/edit')} />
-        <Btn label={uploading ? '업로드 중…' : user.photoUrl ? '사진 변경' : '사진 등록'} kind="ghost" small disabled={uploading} style={{ flex: 1 }} onPress={pickPhoto} />
+        <Btn label={uploading ? (checkMsg ?? '업로드 중…') : user.photoUrl ? '사진 변경' : '사진 등록'} kind="ghost" small disabled={uploading} style={{ flex: 1 }} onPress={pickPhoto} />
         </View>
+        {user.photoStatus === 'rejected' && (
+          <View style={s.photoNoteBad}><Text style={s.photoNoteBadTxt}>사진이 반려됐어요{user.photoRejectReason ? ` — ${user.photoRejectReason}` : ''}. 정면 얼굴이 잘 나온 사진으로 다시 등록해 주세요.</Text></View>
+        )}
+        {user.photoUrl && user.photoStatus && user.photoStatus !== 'rejected' && (
+          <Text style={s.photoNote}>{user.photoStatus === 'pending' ? '사진 검수 대기 중 — 확인되면 상대에게 보여요' : user.photoStatus === 'approved' ? '사진 검수 완료 ✓' : '정면 사진 자동 검수 통과 ✓'}</Text>
+        )}
 
         <View style={s.menu}>
           {rows.map((r, i) => (
@@ -225,6 +240,9 @@ export default function My() {
 }
 
 const s = StyleSheet.create({
+  photoNote: { fontSize: 11.5, color: C.good, marginTop: 8, marginHorizontal: 2 },
+  photoNoteBad: { backgroundColor: C.accentSoft, borderRadius: 10, padding: 11, marginTop: 8 },
+  photoNoteBadTxt: { fontSize: 12.5, color: C.accentDeep, lineHeight: 18, fontWeight: '600' },
   me: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 10, paddingHorizontal: 2, marginBottom: 6 },
   meName: { fontSize: 18.5, fontWeight: '700', color: C.ink },
   meSub: { fontSize: 12.5, color: C.muted, marginTop: 3 },

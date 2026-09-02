@@ -30,6 +30,7 @@ export interface ProfileRow {
   demo_meta: Record<string, unknown> | null;
   bio?: string | null; height_cm?: number | null; region?: string | null; goal?: string | null;
   drink?: string | null; smoke?: string | null; mbti?: string | null; answers?: { q: string; a: string }[] | null;
+  photo_status?: string | null; photo_reject_reason?: string | null;
 }
 
 // 실유저(사진 없을 때) 아바타 색 — handle 해시로 결정
@@ -58,7 +59,9 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
     distKm: m.dist_km ?? 10,
     tags: r.tags ?? [],
     colors: m.colors ?? hashColors(r.handle),
-    photoUrl: r.photos?.[0],
+    photoUrl: r.photo_status === 'rejected' ? undefined : r.photos?.[0], // 반려된 사진은 어디에도 노출하지 않음
+    photoStatus: r.photo_status ?? undefined,
+    photoRejectReason: r.photo_reject_reason ?? undefined,
     lat: r.lat,
     lng: r.lng,
     intro: r.intro ?? '',
@@ -72,7 +75,7 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
   };
 }
 
-export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta,bio,height_cm,region,goal,drink,smoke,mbti,answers';
+export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta,bio,height_cm,region,goal,drink,smoke,mbti,answers,photo_status,photo_reject_reason';
 
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   const supabase = getSupabase();
@@ -103,7 +106,7 @@ function timeLabel(iso: string): string {
 interface PostRow {
   id: number; category: string; title: string; body: string;
   likes: number; views: number; created_at: string;
-  anonymous?: boolean; author?: ProfileRow | null;
+  anonymous?: boolean; author?: ProfileRow | null; comments?: number;
 }
 
 export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
@@ -112,7 +115,7 @@ export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
   try {
     const { data, error } = await withTimeout(
       supabase.from('posts')
-        .select(`id,category,title,body,likes,views,created_at,anonymous,author:profiles!posts_author_fkey(${PROFILE_COLUMNS})`)
+        .select(`id,category,title,body,likes,views,created_at,anonymous,comments,author:profiles!posts_author_fkey(${PROFILE_COLUMNS})`)
         .order('created_at', { ascending: false })
         .limit(30)
     );
@@ -126,7 +129,7 @@ export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
         title: r.title,
         body: r.body,
         likes: r.likes,
-        comments: 0,
+        comments: r.comments ?? 0,
         views: r.views,
         timeLabel: timeLabel(r.created_at),
         anonymous: r.anonymous ?? true,
@@ -140,16 +143,17 @@ export async function fetchRemotePosts(): Promise<FeedPost[] | null> {
 }
 
 /** 데모 글쓰기(비인증) — posts_insert_demo 정책 필요. 실패해도 앱은 로컬로 유지 */
-export async function submitRemotePost(cat: string, title: string, body: string, anonymous = true, authorId?: string): Promise<boolean> {
+/** 글 등록 — 성공하면 서버 글 id('srv-N')를 돌려준다 */
+export async function submitRemotePost(cat: string, title: string, body: string, anonymous = true, authorId?: string): Promise<string | null> {
   const supabase = getSupabase();
-  if (!supabase) return false;
+  if (!supabase) return null;
   try {
-    const { error } = await withTimeout(
-      supabase.from('posts').insert(anonymous || !authorId ? { category: cat, title, body, anonymous: true } : { category: cat, title, body, anonymous: false, author: authorId })
+    const { data, error } = await withTimeout(
+      supabase.from('posts').insert(anonymous || !authorId ? { category: cat, title, body, anonymous: true } : { category: cat, title, body, anonymous: false, author: authorId }).select('id').single()
     );
-    return !error;
+    return error || !data ? null : `srv-${(data as { id: number }).id}`;
   } catch {
-    return false;
+    return null;
   }
 }
 
