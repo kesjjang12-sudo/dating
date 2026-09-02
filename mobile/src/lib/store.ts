@@ -9,9 +9,10 @@ import { getPins, getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
   getMyHandle, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
-  serverSignOut, serverSpend, serverTopup,
+  serverSignOut, serverSpend, serverTopup, serverUpdateProfile,
 } from './server';
 import { EARN, START_COINS } from './economy';
+import { ProfileFields } from './profile';
 import { compatibility, CompatResult } from './saju/compat';
 import { daysFromEpoch, fromDateString, FourPillars } from './saju/manseryeok';
 
@@ -22,6 +23,7 @@ export interface UserInfo {
   hourBranch: number | null; // 시진, null=미상
   hourEdits: number;         // 출생시간 수정 횟수 (최대 2)
   photoUrl?: string | null;  // 내 프로필 사진 (Storage 공개 URL)
+  profile?: ProfileFields;   // 계정 프로필 (서버와 동기화)
 }
 
 export interface ChatMsg { from: 'me' | 'them'; text: string; ts: number; }
@@ -78,6 +80,8 @@ interface AppState {
   toggleLike: (id: string) => void;
   editHour: (hourBranch: number | null) => boolean;
   setPhotoUrl: (url: string) => void;
+  saveProfile: (f: ProfileFields) => Promise<boolean>;
+  hydrateMyProfile: () => void;
   setMyCoords: (c: { lat: number; lng: number }) => void;
   syncServerMatches: (handles: string[]) => void;
   setMissionPhotoClaimed: () => void;
@@ -348,6 +352,29 @@ export const useApp = create<AppState>()(
         compatCache.clear();
         set({ user: { ...user, hourBranch, hourEdits: user.hourEdits + 1 } });
         return true;
+      },
+
+      saveProfile: async (f) => {
+        const { user } = get();
+        if (!user) return false;
+        set({ user: { ...user, profile: { ...(user.profile ?? {}), ...f } } });
+        if (!get().serverMode) return true;
+        return serverUpdateProfile({ ...(user.profile ?? {}), ...f });
+      },
+
+      // 서버에 저장된 내 프로필로 로컬을 채운다 (다른 기기·재설치 대비)
+      hydrateMyProfile: () => {
+        const { user } = get();
+        const me = getMyHandle();
+        if (!user || !me) return;
+        const row = getProfiles().find((p) => p.id === me);
+        if (!row) return;
+        const fromServer: ProfileFields = {
+          job: row.job || undefined, intro: row.intro || undefined, bio: row.bio, heightCm: row.heightCm, region: row.region,
+          goal: row.goal, drink: row.drink, smoke: row.smoke, mbti: row.mbti, tags: row.tags?.length ? row.tags : undefined, answers: row.answers,
+        };
+        const merged: ProfileFields = { ...fromServer, ...(user.profile ?? {}) };
+        set({ user: { ...user, profile: merged, photoUrl: user.photoUrl ?? row.photoUrl ?? null } });
       },
 
       setPhotoUrl: (url) => {

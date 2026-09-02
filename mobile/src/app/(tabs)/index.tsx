@@ -12,6 +12,8 @@ import { ScoreRing } from '../../components/ScoreRing';
 import { useSpend } from '../../components/SpendFlow';
 import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip } from '../../components/ui';
+import { ProfileInfo } from '../../components/ProfileInfo';
+import { completeness } from '../../lib/profile';
 import { COST } from '../../lib/economy';
 import { compatWith, distanceLabel, profileById, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
@@ -40,6 +42,7 @@ export default function Home() {
   const { requestSpend, spendUI } = useSpend();
   const remoteReady = useApp((st) => st.remoteReady);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => { ensureDeck(); }, [ensureDeck, remoteReady]);
 
@@ -86,6 +89,12 @@ export default function Home() {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
       <Header />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
+        {completeness({ ...(user.profile ?? {}), photoUrl: user.photoUrl }) < 60 && (
+          <Pressable style={s.banner} onPress={() => router.push('/profile/edit')}>
+            <Text style={s.bannerTxt}>내 프로필을 채우면 상대가 신호를 보낼 이유가 늘어요</Text>
+            <Text style={s.bannerCta}>작성하기 ›</Text>
+          </Pressable>
+        )}
         <View style={s.deckHead}>
           <Text style={s.deckTitle}>오늘의 인연</Text>
           <Text style={s.deckCount}>
@@ -120,7 +129,7 @@ export default function Home() {
             const c = compatWith(user, currentId);
             return (
               <View>
-                <View style={s.card}>
+                <Pressable style={s.card} onPress={() => setProfileOpen(true)}>
                   <LinearGradient colors={p.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.photo}>
                     {p.photoUrl
                       ? (
@@ -137,7 +146,7 @@ export default function Home() {
                     <View style={s.info}>
                       <View style={{ flex: 1 }}>
                         <Text style={s.nm}>{p.name}, {ageOf(p.birth)}</Text>
-                        <Text style={s.subTxt}>{p.job} · {distanceLabel(p)}</Text>
+                        <Text style={s.subTxt}>{p.job || '직업 미입력'} · {p.region || distanceLabel(p)}</Text>
                       </View>
                       <ScoreRing score={c.total} sub={topPercent(c.total)} />
                     </View>
@@ -150,7 +159,8 @@ export default function Home() {
                     <Chip label={c.precise ? '정밀 궁합' : '정확도 75%'} tone={c.precise ? 'good' : 'mut'} />
                     {p.tags.map((t) => <Chip key={t} label={t} />)}
                   </View>
-                </View>
+                  <View style={s.profileHint}><Text style={s.profileHintTxt}>카드를 누르면 {p.name}님의 프로필이 열려요 ›</Text></View>
+                </Pressable>
 
                 <View style={s.actions}>
                   <Pressable style={s.pass} onPress={() => { passCurrent(); }}>
@@ -165,6 +175,17 @@ export default function Home() {
           })()
         )}
       </ScrollView>
+
+      <Sheet visible={profileOpen && !exhausted} onClose={() => setProfileOpen(false)}>
+        {currentId && (
+          <>
+            <SheetTitle>{profileById(currentId).name}님의 프로필</SheetTitle>
+            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}><ProfileInfo p={profileById(currentId)} /></ScrollView>
+            <View style={{ height: 12 }} />
+            <Btn label="닫기" kind="ghost" onPress={() => setProfileOpen(false)} />
+          </>
+        )}
+      </Sheet>
 
       <Sheet visible={detail !== null} onClose={() => setDetailId(null)}>
         {detail && (
@@ -213,6 +234,11 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 56, paddingBottom: 20, paddingHorizontal: 8 },
   blindWrap: { ...StyleSheet.absoluteFill as object, alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(20,8,10,0.25)' },
   blindTxt: { color: '#fff', fontSize: 13, fontWeight: '600', textAlign: 'center', lineHeight: 20, textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 6 },
+  profileHint: { paddingHorizontal: 18, paddingBottom: 12, marginTop: -4 },
+  profileHintTxt: { fontSize: 12, color: C.faint },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.accentSoft, borderRadius: R.md, paddingHorizontal: 14, paddingVertical: 11, marginTop: 4, marginBottom: 6 },
+  bannerTxt: { flex: 1, fontSize: 12.5, color: C.accentDeep, fontWeight: '600', lineHeight: 18 },
+  bannerCta: { fontSize: 12.5, color: C.accentDeep, fontWeight: '700' },
   emptyBig: { fontFamily: F.serif, fontSize: 19, color: C.ink, marginBottom: 8 },
   emptyNote: { fontSize: 13, color: C.faint, textAlign: 'center', lineHeight: 21, marginBottom: 18 },
 });

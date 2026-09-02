@@ -19,6 +19,15 @@ export interface SeedProfile {
   acceptsInstantly: boolean; // 신호 수락 여부(데모)
   viewedMe?: boolean;        // 관심함 '조회' 시드
   sentSignal?: boolean;      // 나에게 신호를 보낸 프로필
+  // 계정 프로필 (실유저가 직접 입력)
+  bio?: string;
+  heightCm?: number | null;
+  region?: string;
+  goal?: string;
+  drink?: string;
+  smoke?: string;
+  mbti?: string;
+  answers?: { q: string; a: string }[];
 }
 
 export const SEED_PROFILES: SeedProfile[] = [

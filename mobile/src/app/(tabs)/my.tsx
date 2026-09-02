@@ -15,6 +15,7 @@ import { EARN, PASS_PRICE } from '../../lib/economy';
 import { BRANCHES_KO, HOUR_RANGES, pillarKo } from '../../lib/saju/ganzhi';
 import { applyReferral, claimMissionPhoto, getMyHandle, uploadAvatar } from '../../lib/server';
 import { myPillars, useApp } from '../../lib/store';
+import { completeness } from '../../lib/profile';
 import { C, F, R } from '../../lib/theme';
 
 export default function My() {
@@ -59,7 +60,9 @@ export default function My() {
   const pillars = useMemo(() => myPillars(user), [user]);
   if (!user || !pillars) return null;
 
+  const pct = completeness({ ...(user.profile ?? {}), photoUrl: user.photoUrl });
   const rows: { label: string; right: string; onPress: () => void }[] = [
+    { label: '내 프로필', right: pct >= 100 ? '완성 ✓' : `완성도 ${pct}%`, onPress: () => router.push('/profile/edit') },
     { label: '스토어', right: `엽전 ${coins.toLocaleString()}`, onPress: () => setStoreOpen(true) },
     { label: '인증 센터', right: '본인 ✓ · 직장 미인증', onPress: () => showToast('인증 센터 (데모) — 직장·학교 인증은 P1 범위예요') },
     { label: '미션', right: `연속 출석 ${streak}일`, onPress: () => setMissionOpen(true) },
@@ -95,10 +98,10 @@ export default function My() {
             <Text style={s.meSub}>{user.birth.replace(/-/g, '.')} · 본인인증 완료</Text>
           </View>
         </View>
-        <Btn
-          label={uploading ? '업로드 중…' : user.photoUrl ? '프로필 사진 변경' : '프로필 사진 등록'}
-          kind="ghost" disabled={uploading} onPress={pickPhoto}
-        />
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Btn label={pct >= 100 ? '프로필 편집' : `프로필 완성하기 ${pct}%`} small style={{ flex: 1 }} onPress={() => router.push('/profile/edit')} />
+        <Btn label={uploading ? '업로드 중…' : user.photoUrl ? '사진 변경' : '사진 등록'} kind="ghost" small disabled={uploading} style={{ flex: 1 }} onPress={pickPhoto} />
+        </View>
 
         <View style={s.menu}>
           {rows.map((r, i) => (

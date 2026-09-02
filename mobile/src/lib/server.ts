@@ -375,3 +375,17 @@ export async function uploadAvatar(base64: string, contentType: string): Promise
     return null;
   }
 }
+
+// ── 내 프로필 저장 (직업·소개·키·지역·목표·음주·흡연·MBTI·관심사·문답) ──
+export async function serverUpdateProfile(f: import('./profile').ProfileFields): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return false;
+  try {
+    const { error } = await sb.from('profiles').update({
+      job: f.job ?? null, intro: f.intro ?? null, bio: f.bio ?? null, height_cm: f.heightCm ?? null,
+      region: f.region ?? null, goal: f.goal ?? null, drink: f.drink ?? null, smoke: f.smoke ?? null,
+      mbti: f.mbti ?? null, tags: f.tags ?? [], answers: f.answers ?? [],
+    }).eq('id', myProfileId);
+    return !error;
+  } catch { return false; }
+}

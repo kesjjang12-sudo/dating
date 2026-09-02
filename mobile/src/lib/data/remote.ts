@@ -28,6 +28,8 @@ export interface ProfileRow {
   lat: number | null;
   lng: number | null;
   demo_meta: Record<string, unknown> | null;
+  bio?: string | null; height_cm?: number | null; region?: string | null; goal?: string | null;
+  drink?: string | null; smoke?: string | null; mbti?: string | null; answers?: { q: string; a: string }[] | null;
 }
 
 // 실유저(사진 없을 때) 아바타 색 — handle 해시로 결정
@@ -52,7 +54,7 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
     gender: r.gender,
     birth: r.birth_date,
     hourBranch: r.hour_branch,
-    job: r.job ?? '회사원',
+    job: r.job ?? '',
     distKm: m.dist_km ?? 10,
     tags: r.tags ?? [],
     colors: m.colors ?? hashColors(r.handle),
@@ -65,10 +67,12 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
     acceptsInstantly: m.accepts_instantly ?? false,
     viewedMe: m.viewed_me,
     sentSignal: m.sent_signal,
+    bio: r.bio ?? undefined, heightCm: r.height_cm ?? null, region: r.region ?? undefined, goal: r.goal ?? undefined,
+    drink: r.drink ?? undefined, smoke: r.smoke ?? undefined, mbti: r.mbti ?? undefined, answers: r.answers ?? undefined,
   };
 }
 
-export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta';
+export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta,bio,height_cm,region,goal,drink,smoke,mbti,answers';
 
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   const supabase = getSupabase();

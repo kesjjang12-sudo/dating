@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ElemBars } from '../../components/ElemBars';
+import { ProfileInfo } from '../../components/ProfileInfo';
 import { ScoreRing } from '../../components/ScoreRing';
 import { useSpend } from '../../components/SpendFlow';
 import { Btn, Chip } from '../../components/ui';
@@ -87,7 +88,10 @@ export default function CompatDetail() {
           </View>
           <ElemBars parts={c.parts} />
 
-          <SecLabel n="一" label={`${p.name}님의 사주`} />
+          <SecLabel n="一" label={`${p.name}님의 프로필`} />
+          <ProfileInfo p={p} />
+
+          <SecLabel n="二" label={`${p.name}님의 사주`} />
           <PillarGrid a={them} />
           <View style={s.badges}>
             {them.badges.map((b, i) => (
@@ -105,7 +109,7 @@ export default function CompatDetail() {
           </View>
           {reading.themSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
 
-          <SecLabel n="二" label="두 사주 사이의 글자" />
+          <SecLabel n="三" label="두 사주 사이의 글자" />
           <View style={s.relBox}>
             {reading.relations.length === 0 && <Text style={s.relEmpty}>두 명식 사이에 합·충이 없습니다 — 기운의 간섭이 적은 담담한 인연이에요.</Text>}
             {reading.relations.map((r, i) => (
@@ -119,10 +123,10 @@ export default function CompatDetail() {
             ))}
           </View>
 
-          <SecLabel n="三" label="두 사람의 궁합" />
+          <SecLabel n="四" label="두 사람의 궁합" />
           {reading.coupleSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
 
-          <SecLabel n="四" label="시기 — 대운과 올해" />
+          <SecLabel n="五" label="시기 — 대운과 올해" />
           {reading.timingSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
 
           <Text style={s.foot}>
