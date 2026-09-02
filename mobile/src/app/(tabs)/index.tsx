@@ -42,7 +42,6 @@ export default function Home() {
   const { requestSpend, spendUI } = useSpend();
   const remoteReady = useApp((st) => st.remoteReady);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => { ensureDeck(); }, [ensureDeck, remoteReady]);
 
@@ -69,19 +68,8 @@ export default function Home() {
     });
   };
 
-  const openDetail = (id: string) => {
-    if (unlockedDetails[id]) { setDetailId(id); return; }
-    const p = profileById(id);
-    requestSpend({
-      cost: COST.detail,
-      reason: 'detail',
-      ref: id,
-      title: '상세 궁합 풀이',
-      desc: `${p.name}님과의 5요소 궁합과 관계 풀이를 확인해요. 한 번 열람하면 계속 무료로 볼 수 있어요.`,
-      okLabel: '풀이 보기',
-      onOk: () => { unlockDetail(id); showToast(`엽전 ${COST.detail}개를 사용했어요`); setDetailId(id); },
-    });
-  };
+  // 상세 풀이는 상대 페이지에서 해금한다 (미열람 시 마스킹 상태로 열림)
+  const openDetail = (id: string) => router.push({ pathname: "/compat/[id]", params: { id } });
 
   const detail = detailId ? { p: profileById(detailId), c: compatWith(user, detailId) } : null;
 
@@ -129,7 +117,7 @@ export default function Home() {
             const c = compatWith(user, currentId);
             return (
               <View>
-                <Pressable style={s.card} onPress={() => setProfileOpen(true)}>
+                <Pressable style={s.card} onPress={() => router.push({ pathname: "/compat/[id]", params: { id: currentId } })}>
                   <LinearGradient colors={p.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.photo}>
                     {p.photoUrl
                       ? (
@@ -159,7 +147,7 @@ export default function Home() {
                     <Chip label={c.precise ? '정밀 궁합' : '정확도 75%'} tone={c.precise ? 'good' : 'mut'} />
                     {p.tags.map((t) => <Chip key={t} label={t} />)}
                   </View>
-                  <View style={s.profileHint}><Text style={s.profileHintTxt}>카드를 누르면 {p.name}님의 프로필이 열려요 ›</Text></View>
+                  <View style={s.profileHint}><Text style={s.profileHintTxt}>카드를 누르면 {p.name}님의 프로필과 사주 궁합이 열려요 ›</Text></View>
                 </Pressable>
 
                 <View style={s.actions}>
@@ -176,27 +164,13 @@ export default function Home() {
         )}
       </ScrollView>
 
-      <Sheet visible={profileOpen && !exhausted} onClose={() => setProfileOpen(false)}>
-        {currentId && (
-          <>
-            <SheetTitle>{profileById(currentId).name}님의 프로필</SheetTitle>
-            <ScrollView style={{ maxHeight: 460 }} showsVerticalScrollIndicator={false}><ProfileInfo p={profileById(currentId)} /></ScrollView>
-            <View style={{ height: 12 }} />
-            <Btn label="닫기" kind="ghost" onPress={() => setProfileOpen(false)} />
-          </>
-        )}
-      </Sheet>
-
       <Sheet visible={detail !== null} onClose={() => setDetailId(null)}>
         {detail && (
           <>
             <SheetTitle>{detail.p.name}님과의 궁합 — {detail.c.total}점</SheetTitle>
             <SheetDesc>{detail.c.headline}</SheetDesc>
             <ElemBars parts={detail.c.parts} />
-            <SheetDesc>{detail.c.reading}</SheetDesc>
-            <Btn label="전체 풀이 보기 — 명식·기질·결혼운·대운" kind="ghost" onPress={() => { const pid = detail.p.id; setDetailId(null); setTimeout(() => router.push({ pathname: "/compat/[id]", params: { id: pid } }), 250); }} />
-            <View style={{ height: 8 }} />
-            <Btn label="이대로 신호 보내기" cost={COST.signal} onPress={() => { const pid = detail.p.id; setDetailId(null); setTimeout(() => doSignal(pid), 250); }} />
+            <Btn label="전체 풀이 보기" kind="ghost" onPress={() => { const pid = detail.p.id; setDetailId(null); setTimeout(() => router.push({ pathname: "/compat/[id]", params: { id: pid } }), 250); }} />
           </>
         )}
       </Sheet>

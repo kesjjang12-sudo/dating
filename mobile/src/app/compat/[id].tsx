@@ -2,6 +2,7 @@
 // 텍스트는 lib/saju/reading.ts가 규칙 기반으로 생성한다 (결정론적).
 
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -63,26 +64,11 @@ export default function CompatDetail() {
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
       <View style={s.top}>
         <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={24} color={C.ink} /></Pressable>
-        <Text style={s.topTitle} numberOfLines={1}>{p.name}님과의 궁합 풀이</Text>
+        <Text style={s.topTitle} numberOfLines={1}>{p.name}님 — 프로필 · 사주 궁합</Text>
         <Chip label={`궁합 ${c.total}`} tone="good" />
       </View>
 
-      {!unlocked ? (
-        <View style={s.gate}>
-          <ScoreRing score={c.total} sub={c.precise ? '정밀 궁합' : '정확도 75%'} size={96} />
-          <Text style={s.gateH}>{c.headline}</Text>
-          <Text style={s.gateD}>
-            {p.name}님의 사주 명식과 기질·연애 스타일·결혼운, 두 사주의 글자 관계, 성격·애정·결혼 궁합, 대운과 올해 세운까지 —
-            한 번 열람하면 계속 무료로 볼 수 있어요.
-          </Text>
-          <Btn label="상세 풀이 열람" cost={COST.detail} style={{ alignSelf: 'stretch' }}
-            onPress={() => requestSpend({
-              cost: COST.detail, reason: 'detail', ref: id, title: '상세 궁합 풀이',
-              desc: `${p.name}님과의 전체 풀이를 열어요. 한 번 열람하면 계속 무료로 볼 수 있어요.`, okLabel: '풀이 보기',
-              onOk: () => { unlockDetail(id); showToast(`엽전 ${COST.detail}개를 사용했어요`); },
-            })} />
-        </View>
-      ) : (
+      {(
         <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 110 }}>
           <View style={s.hero}>
             <ScoreRing score={c.total} sub={c.precise ? '정밀 궁합' : '정확도 75%'} size={84} />
@@ -112,6 +98,17 @@ export default function CompatDetail() {
             <SumCell k="강약" v={them.weak ? '신약' : '신강'} />
             <SumCell k="반기는 기운" v={them.favorable.join(' · ')} />
           </View>
+          {!unlocked ? (
+            <LockedReading
+              name={p.name} cost={COST.detail} preview={[...reading.themSections, ...reading.extra.relationSections]}
+              labels={[...reading.themSections, ...reading.extra.themMore, ...reading.extra.relationSections, ...reading.coupleSections, ...reading.extra.stageSections, ...reading.timingSections, ...reading.extra.timingSections, reading.extra.summary].map((x) => x.label)}
+              onUnlock={() => requestSpend({
+                cost: COST.detail, reason: 'detail', ref: id, title: '사주 궁합 풀이 해금',
+                desc: `${p.name}님과의 전체 풀이를 열어요. 한 번 열람하면 계속 무료로 볼 수 있어요.`, okLabel: '해금하기',
+                onOk: () => { unlockDetail(id); showToast(`엽전 ${COST.detail}개를 사용했어요 — 풀이가 열렸어요`); },
+              })}
+            />
+          ) : (<>
           {reading.themSections.map((sec) => <Topic key={sec.key} sec={sec} />)}
           {reading.extra.themMore.map((sec) => <Topic key={sec.key} sec={sec} />)}
 
@@ -150,6 +147,7 @@ export default function CompatDetail() {
 
           <SecLabel n="八" label="총평" />
           <View style={s.sumBox}><Topic sec={reading.extra.summary} /></View>
+          </>)}
 
           <Text style={s.foot}>
             명식은 절기 입기 시각을 태양 황경으로 계산한 만세력 기준이며, 십신은 지지 본기, 십이운성은 음간 역행 기준입니다.
@@ -158,7 +156,7 @@ export default function CompatDetail() {
         </ScrollView>
       )}
 
-      {unlocked && (
+      {(
         <View style={s.cta}>
           {matched
             ? <Btn label="채팅 열기" onPress={() => router.push({ pathname: '/chat/[id]', params: { id } })} />
@@ -169,6 +167,28 @@ export default function CompatDetail() {
       )}
       {spendUI}
     </SafeAreaView>
+  );
+}
+
+/** 미열람 상태: 풀이 앞부분을 블러로 비추고 해금 카드를 덮는다 */
+function LockedReading({ name, cost, preview, labels, onUnlock }: { name: string; cost: number; preview: Section[]; labels: string[]; onUnlock: () => void }) {
+  const uniq = [...new Set(labels)];
+  return (
+    <View style={s.lockWrap}>
+      <View style={s.lockBlur} pointerEvents="none">
+        {preview.slice(0, 3).map((sec) => <Topic key={sec.key} sec={sec} />)}
+      </View>
+      <LinearGradient colors={['rgba(253,251,246,0.15)', 'rgba(253,251,246,0.92)', C.bg]} locations={[0, 0.45, 1]} style={s.lockOverlay} pointerEvents="none" />
+      <View style={s.lockCard}>
+        <Text style={{ fontSize: 26 }}>🔒</Text>
+        <Text style={s.lockTitle}>{name}님과 나의 사주 풀이 {uniq.length}장이 잠겨 있어요</Text>
+        <Text style={s.lockDesc}>이 사람이 나에게 어떤 별인지, 서로 채워 주는 기운, 연애의 흐름과 결혼 후, 대운·세운까지. 한 번 해금하면 계속 볼 수 있어요.</Text>
+        <View style={s.lockList}>
+          {uniq.map((l) => <Text key={l} style={s.lockChip}>{l}</Text>)}
+        </View>
+        <Btn label="해금하기" cost={cost} style={{ alignSelf: 'stretch' }} onPress={onUnlock} />
+      </View>
+    </View>
   );
 }
 
@@ -291,9 +311,14 @@ function PillarGrid({ a }: { a: PersonAnalysis }) {
 const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.card },
   topTitle: { flex: 1, fontSize: 15.5, fontWeight: '700', color: C.ink },
-  gate: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 16 },
-  gateH: { fontFamily: F.serif, fontSize: 19, color: C.ink, textAlign: 'center', lineHeight: 28 },
-  gateD: { fontSize: 13.5, color: C.muted, textAlign: 'center', lineHeight: 21 },
+  lockWrap: { marginTop: 12, position: 'relative', minHeight: 560 },
+  lockBlur: { opacity: 0.55, filter: 'blur(5px)' },
+  lockOverlay: { position: 'absolute', left: -18, right: -18, top: 0, bottom: 0 },
+  lockCard: { position: 'absolute', left: 0, right: 0, top: 120, alignItems: 'center', gap: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.xl, padding: 22, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
+  lockTitle: { fontFamily: F.serif, fontSize: 18, color: C.ink, textAlign: 'center', lineHeight: 27 },
+  lockDesc: { fontSize: 13, color: C.muted, textAlign: 'center', lineHeight: 20 },
+  lockList: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginVertical: 4 },
+  lockChip: { fontSize: 11, color: C.muted, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, marginBottom: 12 },
   heroK: { fontSize: 12.5, color: C.faint, fontWeight: '600', letterSpacing: 0.3 },
   heroH: { fontFamily: F.serif, fontSize: 18, color: C.ink, lineHeight: 27, marginTop: 4 },

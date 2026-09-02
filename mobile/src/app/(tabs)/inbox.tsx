@@ -65,15 +65,15 @@ export default function Inbox() {
         <Sect label="받은 신호" style={{ marginTop: 6 }} />
         {srvIncoming.map(({ signalId, profile: p, score }) => (
           <View key={`srv-${signalId}`} style={s.row}>
-            <Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} blurred={!!p.photoUrl} />
-            <View style={{ flex: 1 }}>
+            <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}><Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} blurred={!!p.photoUrl} /></Pressable>
+            <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={s.nm}>{p.name}</Text>
                 <Chip label={`궁합 ${score}`} tone="good" />
                 <Chip label="실유저" tone="acc" />
               </View>
               <Text style={s.ds}>{p.job} · {p.intro || '진지한 만남을 찾고 있어요'}</Text>
-            </View>
+            </Pressable>
             <Btn
               label="연결하기" small
               onPress={async () => {
@@ -93,14 +93,14 @@ export default function Inbox() {
           const c = compatWith(user, p.id);
           return (
             <View key={p.id} style={s.row}>
-              <Avatar colors={p.colors} initial={p.name[0]} />
-              <View style={{ flex: 1 }}>
+              <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}><Avatar colors={p.colors} initial={p.name[0]} /></Pressable>
+              <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={s.nm}>{p.name}</Text>
                   <Chip label={`궁합 ${c.total}`} tone="good" />
                 </View>
                 <Text style={s.ds}>{p.job} · {distanceLabel(p)}{c.precise ? ' · 정밀 궁합' : ''}</Text>
-              </View>
+              </Pressable>
               {st === 'connected' ? (
                 <Btn label="채팅 열기" kind="ghost" small onPress={() => router.push({ pathname: '/chat/[id]', params: { id: p.id } })} />
               ) : st === 'dismissed' ? (

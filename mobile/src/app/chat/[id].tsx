@@ -98,14 +98,16 @@ export default function Chat() {
         <Pressable onPress={() => router.back()} hitSlop={10}>
           <Ionicons name="chevron-back" size={24} color={C.ink} />
         </Pressable>
-        <Avatar
-          colors={p.colors} initial={p.name[0]} size={36} photoUrl={p.photoUrl}
-          blurred={!!p.photoUrl && !(reveal?.revealed ?? false)}
-        />
-        <View style={{ flex: 1 }}>
-          <Text style={s.nm}>{p.name}</Text>
-          <Text style={s.sub}>{p.job}{live ? ' · 실시간' : ''}{reveal?.revealed ? ' · 얼굴 공개됨' : ''}</Text>
-        </View>
+        <Pressable style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }} onPress={() => router.push({ pathname: '/compat/[id]', params: { id } })}>
+          <Avatar
+            colors={p.colors} initial={p.name[0]} size={36} photoUrl={p.photoUrl}
+            blurred={!!p.photoUrl && !(reveal?.revealed ?? false)}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={s.nm}>{p.name}</Text>
+            <Text style={s.sub}>{p.job || '프로필·궁합 보기'}{live ? ' · 실시간' : ''}{reveal?.revealed ? ' · 얼굴 공개됨' : ''}</Text>
+          </View>
+        </Pressable>
         <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id } })} hitSlop={8}>
           <Chip label={`궁합 ${c.total} ›`} tone="good" />
         </Pressable>
