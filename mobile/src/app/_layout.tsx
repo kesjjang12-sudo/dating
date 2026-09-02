@@ -5,7 +5,7 @@ import React, { useEffect } from 'react';
 import { Platform, View } from 'react-native';
 import { Toast } from '../components/Toast';
 import * as Location from 'expo-location';
-import { fetchRemotePosts, fetchRemoteProfiles } from '../lib/data/remote';
+import { fetchDeckPins, fetchRemotePosts, fetchRemoteProfiles } from '../lib/data/remote';
 import { ensureServerSession, updateMyLocation } from '../lib/server';
 import { useApp } from '../lib/store';
 import { C } from '../lib/theme';
@@ -25,7 +25,7 @@ export default function RootLayout() {
       document.head.appendChild(meta);
     }
     (async () => {
-      const [profiles, posts] = await Promise.all([fetchRemoteProfiles(), fetchRemotePosts()]);
+      const [profiles, posts] = await Promise.all([fetchRemoteProfiles(), fetchRemotePosts(), fetchDeckPins()]);
       if (profiles || posts) useApp.getState().applyRemote(profiles, posts);
       // 서버 세션 (익명 로그인 활성화 시) — 서버 지갑이 엽전의 진실이 된다
       const { user, onboarded, setServerMode } = useApp.getState();

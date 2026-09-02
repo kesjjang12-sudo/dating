@@ -3,7 +3,7 @@
 
 import { getSupabase } from '../supabase';
 import { FeedPost, SeedProfile } from './profiles';
-import { setServerIds } from './registry';
+import { DeckPin, setPins, setServerIds } from './registry';
 
 const TIMEOUT_MS = 5000;
 
@@ -138,5 +138,20 @@ export async function submitRemotePost(cat: string, title: string, body: string)
     return !error;
   } catch {
     return false;
+  }
+}
+
+/** 고정 추천 목록 (deck_pins) — 레지스트리에 바로 반영 */
+export async function fetchDeckPins(): Promise<DeckPin[] | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await withTimeout(supabase.from('deck_pins').select('viewer_nickname,pinned_nickname'));
+    if (error || !data) return null;
+    const pins = (data as { viewer_nickname: string; pinned_nickname: string }[]).map((r) => ({ viewer: r.viewer_nickname, pinned: r.pinned_nickname }));
+    setPins(pins);
+    return pins;
+  } catch {
+    return null;
   }
 }

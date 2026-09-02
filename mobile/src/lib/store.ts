@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
-import { getProfiles, setProfiles } from './data/registry';
+import { getPins, getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
   getMyHandle, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
@@ -124,18 +124,27 @@ export function compatWith(user: UserInfo, profileId: string): CompatResult {
   return res;
 }
 
-/** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다" */
-function buildDeck(user: UserInfo, exclude: Set<string>): string[] {
+/** 고정 추천(테스트): 내 닉네임에 걸린 핀 상대를 성별·회전·지나가기 무시하고 돌려준다 (hardExclude=매칭 등만 제외) */
+function pinnedIds(user: UserInfo, hardExclude: Set<string>): string[] {
   const me = getMyHandle();
+  const wanted = new Set(getPins().filter((x) => x.viewer === user.name).map((x) => x.pinned));
+  if (wanted.size === 0) return [];
+  return getProfiles().filter((p) => wanted.has(p.name) && p.id !== me && !hardExclude.has(p.id)).map((p) => p.id);
+}
+
+/** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다". 핀 상대는 맨 앞에 붙는다 */
+function buildDeck(user: UserInfo, exclude: Set<string>, hardExclude: Set<string> = new Set()): string[] {
+  const me = getMyHandle();
+  const pinned = pinnedIds(user, hardExclude);
   const candidates = getProfiles()
-    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal && p.id !== me)
+    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal && p.id !== me && !pinned.includes(p.id))
     .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return pinned;
   const d = new Date();
   const rot = daysFromEpoch(d.getFullYear(), d.getMonth() + 1, d.getDate()) % candidates.length;
   const rotated = [...candidates.slice(rot), ...candidates.slice(0, rot)]
     .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total);
-  return rotated.slice(0, 3).map((p) => p.id);
+  return [...pinned, ...rotated.slice(0, 3).map((p) => p.id)];
 }
 
 export const useApp = create<AppState>()(
@@ -194,9 +203,14 @@ export const useApp = create<AppState>()(
         // 서버 프로필 로딩 후, 덱의 남은 카드가 삭제된 프로필을 가리키면 오늘 덱을 다시 만든다
         const known = new Set(getProfiles().map((p) => p.id));
         const stale = remoteReady && deckIds.slice(deckPos).some((id) => !known.has(id));
-        if (deckDate === todayStr() && !stale) return;
+        if (deckDate === todayStr() && !stale) {
+          // 오늘 덱이 이미 있어도 핀 상대가 빠져 있으면 현재 위치 앞에 끼워 넣는다 (테스트용 고정 추천)
+          const missing = remoteReady ? pinnedIds(user, new Set(matches)).filter((id) => !deckIds.slice(deckPos).includes(id)) : [];
+          if (missing.length) set({ deckIds: [...deckIds.slice(0, deckPos), ...missing, ...deckIds.slice(deckPos)] });
+          return;
+        }
         const exclude = new Set([...matches, ...Object.keys(get().passed)]);
-        set({ deckDate: todayStr(), deckIds: buildDeck(user, exclude), deckPos: 0 });
+        set({ deckDate: todayStr(), deckIds: buildDeck(user, exclude, new Set(matches)), deckPos: 0 });
       },
 
       passCurrent: () => {
@@ -211,8 +225,8 @@ export const useApp = create<AppState>()(
         const { user, matches, passed, deckIds } = get();
         if (!user) return;
         const exclude = new Set([...matches, ...Object.keys(passed), ...deckIds]);
-        let next = buildDeck(user, exclude);
-        if (next.length === 0) next = buildDeck(user, new Set(matches));
+        let next = buildDeck(user, exclude, exclude);
+        if (next.length === 0) next = buildDeck(user, new Set(matches), exclude);
         set({ deckIds: next, deckPos: 0 });
       },
 
