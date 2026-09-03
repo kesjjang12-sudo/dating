@@ -14,6 +14,9 @@ export interface FaceCheck {
 
 const WASM_BASE = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm';
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+const CLS_MODEL = 'https://storage.googleapis.com/mediapipe-models/image_classifier/efficientnet_lite0/float32/1/efficientnet_lite0.tflite';
+// ImageNet 라벨 인덱스 0~397은 동물(개 151~268, 고양이 281~285 포함) — 얼굴 감지기가 개·고양이 정면 얼굴에 오탐하므로 분류기로 한 번 더 거른다
+const ANIMAL_MAX_INDEX = 397;
 
 // 판정 기준 — 한 곳에서 조절
 export const FACE_RULES = {
@@ -44,6 +47,18 @@ function loadVision(): Promise<Vision> {
     el.addEventListener('error', fail);
     document.head.appendChild(el);
   });
+}
+
+let classifierPromise: Promise<Vision> | null = null;
+async function getClassifier(): Promise<Vision> {
+  if (!classifierPromise) {
+    classifierPromise = (async () => {
+      const vision = await loadVision();
+      const files = await vision.FilesetResolver.forVisionTasks(WASM_BASE);
+      return vision.ImageClassifier.createFromOptions(files, { baseOptions: { modelAssetPath: CLS_MODEL }, runningMode: 'IMAGE', maxResults: 3 });
+    })().catch((e) => { classifierPromise = null; throw e; });
+  }
+  return classifierPromise;
 }
 
 let detectorPromise: Promise<Vision> | null = null;
@@ -116,6 +131,16 @@ export async function checkFacePhoto(src: string): Promise<FaceCheck> {
     const r = kp[2].x - kp[4].x, l = kp[5].x - kp[2].x;
     earRatio = l > 1e-6 ? Math.abs(r) / l : 99;
   }
+  // 동물(개·고양이 등) 사진 차단 — 분류기 로드 실패 시에는 건너뛴다
+  try {
+    const cls = await getClassifier();
+    const cats = (cls.classify(img).classifications?.[0]?.categories ?? []) as { index: number; score: number; categoryName: string }[];
+    const top = cats[0];
+    const animal = cats.find((c) => c.index <= ANIMAL_MAX_INDEX && c.score >= 0.25);
+    if (animal && (!top || top.index <= ANIMAL_MAX_INDEX || animal.score >= 0.4)) {
+      return { ok: false, status: 'rejected', reason: '사람 얼굴 사진으로 올려 주세요. (동물·캐릭터 사진은 등록할 수 없어요)', metrics: { ...base, faceWidthRatio: +ratio.toFixed(3) } };
+    }
+  } catch { /* 분류기 없이 진행 */ }
   const sharp = sharpnessOf(img, box);
   const metrics = { ...base, faceWidthRatio: +ratio.toFixed(3), frontal: +(1 - Math.min(1, noseOffset)).toFixed(3), earSymmetry: +earRatio.toFixed(2), sharpness: +sharp.toFixed(1) };
   if (ratio < FACE_RULES.minFaceWidthRatio) return { ok: false, status: 'rejected', reason: '너무 멀리서 찍은 사진이에요. 얼굴이 더 크게 나오게 올려 주세요.', metrics };

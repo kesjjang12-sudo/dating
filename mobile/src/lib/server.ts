@@ -428,3 +428,43 @@ export async function addComment(postId: string, body: string, anonymous: boolea
     return !error;
   } catch { return false; }
 }
+
+// ── 신고 · 차단 ──────────────────────────────────────────
+export const REPORT_REASONS = ['허위 사진·프로필', '불쾌한 메시지·성희롱', '광고·사기·외부 유도', '미성년 의심', '기타'] as const;
+export type ReportReason = typeof REPORT_REASONS[number];
+
+export async function reportUser(handle: string, reason: ReportReason, detail?: string): Promise<boolean> {
+  const sb = getSupabase(); const target = getServerId(handle);
+  if (!sb || !myProfileId || !target) return false;
+  try { const { error } = await sb.from('reports').insert({ reporter: myProfileId, target, reason, detail: detail || null }); return !error; } catch { return false; }
+}
+export async function reportPost(postId: string, reason: ReportReason, detail?: string): Promise<boolean> {
+  const sb = getSupabase(); const pid = postServerId(postId);
+  if (!sb || !myProfileId || pid === null) return false;
+  try { const { error } = await sb.from('reports').insert({ reporter: myProfileId, post_id: pid, reason, detail: detail || null }); return !error; } catch { return false; }
+}
+/** 차단 — 양방향으로 서로 안 보이게 되고, 서버가 신호·메시지도 막는다 */
+export async function blockUser(handle: string): Promise<boolean> {
+  const sb = getSupabase(); const blocked = getServerId(handle);
+  if (!sb || !myProfileId || !blocked) return false;
+  try { const { error } = await sb.from('blocks').upsert({ blocker: myProfileId, blocked }); return !error; } catch { return false; }
+}
+export async function unblockUser(handle: string): Promise<boolean> {
+  const sb = getSupabase(); const blocked = getServerId(handle);
+  if (!sb || !myProfileId || !blocked) return false;
+  try { const { error } = await sb.from('blocks').delete().eq('blocker', myProfileId).eq('blocked', blocked); return !error; } catch { return false; }
+}
+/** 나와 얽힌 차단 전체 → { 내가 차단한 handle[], 나를 차단한 handle[] } */
+export async function fetchBlocks(): Promise<{ mine: string[]; theirs: string[] }> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return { mine: [], theirs: [] };
+  try {
+    const { data, error } = await sb.from('blocks').select('blocker, blocked, a:profiles!blocks_blocker_fkey(handle), b:profiles!blocks_blocked_fkey(handle)');
+    if (error || !data) return { mine: [], theirs: [] };
+    const rows = data as unknown as { blocker: string; blocked: string; a: { handle: string } | null; b: { handle: string } | null }[];
+    return {
+      mine: rows.filter((r) => r.blocker === myProfileId).map((r) => r.b?.handle).filter((h): h is string => !!h),
+      theirs: rows.filter((r) => r.blocked === myProfileId).map((r) => r.a?.handle).filter((h): h is string => !!h),
+    };
+  } catch { return { mine: [], theirs: [] }; }
+}

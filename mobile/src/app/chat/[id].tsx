@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
+import { ReportSheet } from '../../components/ReportSheet';
 import { Btn, Chip } from '../../components/ui';
 import {
   fetchServerMessages, revealFace, RevealState, revealState, ServerMsg, serverSendMessage, subscribeMessages,
@@ -25,6 +26,8 @@ export default function Chat() {
   const receiveReply = useApp((st) => st.receiveReply);
   const showToast = useApp((st) => st.showToast);
   const [text, setText] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hidden = useApp((st) => (id ? st.blocked.includes(id) || st.blockedBy.includes(id) : false));
   const [srvMsgs, setSrvMsgs] = useState<ServerMsg[] | null>(null);
   const [reveal, setReveal] = useState<RevealState | null>(null);
   const listRef = useRef<FlatList<ChatMsg | ServerMsg>>(null);
@@ -111,7 +114,9 @@ export default function Chat() {
         <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id } })} hitSlop={8}>
           <Chip label={`궁합 ${c.total} ›`} tone="good" />
         </Pressable>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityLabel="더보기"><Ionicons name="ellipsis-horizontal" size={22} color={C.muted} /></Pressable>
       </View>
+      <ReportSheet visible={menuOpen} onClose={() => setMenuOpen(false)} targetHandle={id} targetName={p.name} onBlocked={() => router.back()} />
 
       {live && reveal && !reveal.revealed && (() => {
         // 얼굴 공개는 대화 후에: 양쪽이 각 required 마디 이상 나눠야 제안/수락 가능 (서버가 강제)
@@ -166,6 +171,9 @@ export default function Chat() {
             </View>
           )}
         />
+        {hidden ? (
+          <View style={s.inputRow}><Text style={{ flex: 1, fontSize: 13, color: C.muted, textAlign: 'center', paddingVertical: 8 }}>차단 관계에서는 메시지를 보낼 수 없어요</Text></View>
+        ) : (
         <View style={s.inputRow}>
           <TextInput
             style={s.input} value={text} onChangeText={setText}
@@ -176,6 +184,7 @@ export default function Chat() {
             <Ionicons name="arrow-up" size={19} color="#fff" />
           </Pressable>
         </View>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

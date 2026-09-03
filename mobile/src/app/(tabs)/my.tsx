@@ -15,7 +15,7 @@ import { EARN, PASS_PRICE } from '../../lib/economy';
 import { BRANCHES_KO, HOUR_RANGES, pillarKo } from '../../lib/saju/ganzhi';
 import { checkFacePhoto } from '../../lib/facecheck';
 import { applyReferral, claimMissionPhoto, getMyHandle, uploadAvatar } from '../../lib/server';
-import { myPillars, useApp } from '../../lib/store';
+import { myPillars, profileById, useApp } from '../../lib/store';
 import { completeness } from '../../lib/profile';
 import { C, F, R } from '../../lib/theme';
 
@@ -65,6 +65,9 @@ export default function My() {
   const [sajuOpen, setSajuOpen] = useState(false);
   const [hourPick, setHourPick] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const blocked = useApp((st) => st.blocked);
+  const unblock = useApp((st) => st.unblock);
 
   const pillars = useMemo(() => myPillars(user), [user]);
   if (!user || !pillars) return null;
@@ -72,6 +75,7 @@ export default function My() {
   const pct = completeness({ ...(user.profile ?? {}), photoUrl: user.photoUrl });
   const rows: { label: string; right: string; onPress: () => void }[] = [
     { label: '내 프로필', right: pct >= 100 ? '완성 ✓' : `완성도 ${pct}%`, onPress: () => router.push('/profile/edit') },
+    { label: '차단 목록', right: blocked.length ? `${blocked.length}명` : '없음', onPress: () => setBlockOpen(true) },
     { label: '스토어', right: `엽전 ${coins.toLocaleString()}`, onPress: () => setStoreOpen(true) },
     { label: '인증 센터', right: '본인 ✓ · 직장 미인증', onPress: () => showToast('인증 센터 (데모) — 직장·학교 인증은 P1 범위예요') },
     { label: '미션', right: `연속 출석 ${streak}일`, onPress: () => setMissionOpen(true) },
@@ -142,6 +146,17 @@ export default function My() {
 
       <StoreSheet visible={storeOpen} onClose={() => setStoreOpen(false)} />
 
+      <Sheet visible={blockOpen} onClose={() => setBlockOpen(false)}>
+        <SheetTitle>차단 목록</SheetTitle>
+        <SheetDesc>차단한 상대는 서로의 추천·관심함·채팅에서 보이지 않아요. 해제하면 다음 로드부터 다시 보여요.</SheetDesc>
+        {blocked.length === 0 && <Text style={{ fontSize: 13.5, color: C.faint, marginBottom: 10 }}>차단한 사람이 없어요</Text>}
+        {blocked.map((h) => (
+          <View key={h} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: C.line }}>
+            <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '600', color: C.ink }}>{profileById(h).name}</Text>
+            <Btn label="차단 해제" kind="ghost" small onPress={() => { void unblock(h); showToast('차단을 해제했어요'); }} />
+          </View>
+        ))}
+      </Sheet>
       <Sheet visible={missionOpen} onClose={() => setMissionOpen(false)}>
         <SheetTitle>미션 — 엽전 모으기</SheetTitle>
         <SheetDesc>매일의 작은 의식이 신호 한 번이 됩니다.</SheetDesc>

@@ -7,6 +7,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Avatar } from '../../components/Avatar';
 import { ProfileInfo } from '../../components/ProfileInfo';
+import { ReportSheet } from '../../components/ReportSheet';
 import { Btn, Chip } from '../../components/ui';
 import { addComment, fetchComments, getMyHandle, PostComment, postServerId } from '../../lib/server';
 import { compatWith, profileById, useApp } from '../../lib/store';
@@ -25,6 +26,7 @@ export default function PostDetail() {
   const [comments, setComments] = useState<PostComment[]>([]);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const canComment = !!post && postServerId(post.id) !== null && serverMode;
   const load = useCallback(() => { if (post) void fetchComments(post.id).then(setComments); }, [post?.id]);
   useEffect(() => { load(); }, [load]);
@@ -52,7 +54,9 @@ export default function PostDetail() {
         <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={24} color={C.ink} /></Pressable>
         <Text style={s.topTitle}>{post.cat}</Text>
         <Text style={s.who}>{post.anonymous === false && post.authorName ? post.authorName : '익명'}</Text>
+        {!post.mine && postServerId(post.id) !== null && <Pressable onPress={() => setReportOpen(true)} hitSlop={10} accessibilityLabel="글 신고"><Ionicons name="ellipsis-horizontal" size={22} color={C.muted} /></Pressable>}
       </View>
+      <ReportSheet visible={reportOpen} onClose={() => setReportOpen(false)} postId={post.id} targetHandle={selso && author ? author.id : undefined} targetName={author?.name} />
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
         <Text style={s.title}>{post.title}</Text>
         <Text style={s.time}>{post.timeLabel} · 조회 {post.views}</Text>

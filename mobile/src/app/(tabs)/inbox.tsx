@@ -33,6 +33,9 @@ export default function Inbox() {
   const { requestSpend, spendUI } = useSpend();
   const [passOpen, setPassOpen] = useState(false);
   const [srvIncoming, setSrvIncoming] = useState<IncomingSignal[]>([]);
+  const blocked = useApp((st) => st.blocked);
+  const blockedBy = useApp((st) => st.blockedBy);
+  const hiddenSet = useMemo(() => new Set([...blocked, ...blockedBy]), [blocked, blockedBy]);
 
   // 탭에 들어올 때마다 수신 신호·매칭 재조회 — 내가 보낸 신호의 수락도 여기서 반영된다
   useFocusEffect(useCallback(() => {
@@ -63,7 +66,7 @@ export default function Inbox() {
       <Header title="관심함" />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 24 }}>
         <Sect label="받은 신호" style={{ marginTop: 6 }} />
-        {srvIncoming.map(({ signalId, profile: p, score, source }) => (
+        {srvIncoming.filter(({ profile: p }) => !hiddenSet.has(p.id)).map(({ signalId, profile: p, score, source }) => (
           <View key={`srv-${signalId}`} style={s.row}>
             <Pressable onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}><Avatar colors={p.colors} initial={p.name[0]} photoUrl={p.photoUrl} blurred={!!p.photoUrl} /></Pressable>
             <Pressable style={{ flex: 1 }} onPress={() => router.push({ pathname: "/compat/[id]", params: { id: p.id } })}>
@@ -200,7 +203,7 @@ export default function Inbox() {
         {matches.length > 0 && (
           <>
             <Sect label="내 매칭" />
-            {matches.map((id) => {
+            {matches.filter((id) => !hiddenSet.has(id)).map((id) => {
               const p = profileById(id);
               const last = (chats[id] ?? [])[Math.max(0, (chats[id] ?? []).length - 1)];
               return (

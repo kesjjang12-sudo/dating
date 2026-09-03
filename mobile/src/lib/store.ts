@@ -8,8 +8,8 @@ import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
 import { getPins, getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
-  getMyHandle, getMyProfileId, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
-  serverSignOut, serverSpend, serverTopup, serverUpdateProfile,
+  blockUser, fetchBlocks, getMyHandle, getMyProfileId, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
+  serverSignOut, serverSpend, serverTopup, serverUpdateProfile, unblockUser,
 } from './server';
 import { EARN, START_COINS } from './economy';
 import { ProfileFields } from './profile';
@@ -59,6 +59,8 @@ interface AppState {
   myCoords: { lat: number; lng: number } | null;
   missionPhotoClaimed: boolean;
   referralApplied: boolean;
+  blocked: string[];      // 내가 차단한 handle (영속)
+  blockedBy: string[];    // 나를 차단한 handle (미영속, 서버에서 로드)
 
   completeOnboarding: (u: Omit<UserInfo, 'hourEdits'>) => void;
   ensureDeck: () => void;
@@ -81,6 +83,10 @@ interface AppState {
   addPost: (cat: string, title: string, body: string) => void;
   toggleLike: (id: string) => void;
   likeSelso: (handle: string) => boolean; // 셀소 작성자에게 좋아요(무료 신호) — 이미 보냈으면 false
+  block: (handle: string) => Promise<void>;
+  unblock: (handle: string) => Promise<void>;
+  loadBlocks: () => Promise<void>;
+  isHidden: (handle: string) => boolean; // 차단 관계(양방향)면 true
   editHour: (hourBranch: number | null) => boolean;
   setPhotoUrl: (url: string, status?: string) => void;
   saveProfile: (f: ProfileFields) => Promise<boolean>;
@@ -142,9 +148,11 @@ function pinnedIds(user: UserInfo, hardExclude: Set<string>): string[] {
 /** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다". 핀 상대는 맨 앞에 붙는다 */
 function buildDeck(user: UserInfo, exclude: Set<string>, hardExclude: Set<string> = new Set()): string[] {
   const me = getMyHandle();
-  const pinned = pinnedIds(user, hardExclude);
+  const st = useApp.getState();
+  const hidden = new Set([...st.blocked, ...st.blockedBy]);
+  const pinned = pinnedIds(user, new Set([...hardExclude, ...hidden]));
   const candidates = getProfiles()
-    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !p.sentSignal && p.id !== me && !pinned.includes(p.id))
+    .filter((p) => p.gender !== user.gender && !exclude.has(p.id) && !hidden.has(p.id) && !p.sentSignal && p.id !== me && !pinned.includes(p.id))
     .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total);
   if (candidates.length === 0) return pinned;
   const d = new Date();
@@ -181,6 +189,28 @@ export const useApp = create<AppState>()(
       myCoords: null,
       missionPhotoClaimed: false,
       referralApplied: false,
+      blocked: [],
+      blockedBy: [],
+
+      isHidden: (handle) => get().blocked.includes(handle) || get().blockedBy.includes(handle),
+
+      block: async (handle) => {
+        const { blocked, deckIds, deckPos } = get();
+        if (!blocked.includes(handle)) set({ blocked: [...blocked, handle] });
+        // 덱에서 즉시 제거 (현재 카드면 다음 카드로)
+        const rest = deckIds.filter((id) => id !== handle);
+        set({ deckIds: rest, deckPos: Math.min(deckPos, rest.length) });
+        if (get().serverMode) await blockUser(handle);
+      },
+      unblock: async (handle) => {
+        set({ blocked: get().blocked.filter((h) => h !== handle) });
+        if (get().serverMode) await unblockUser(handle);
+      },
+      loadBlocks: async () => {
+        if (!get().serverMode) return;
+        const b = await fetchBlocks();
+        set({ blocked: Array.from(new Set([...get().blocked, ...b.mine])), blockedBy: b.theirs });
+      },
 
       setServerMode: (balance) => {
         if (balance === null) return;
@@ -445,7 +475,7 @@ export const useApp = create<AppState>()(
     {
       name: 'yeonbun-app',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: ({ toast, remoteReady, serverMode, ...rest }) => rest,
+      partialize: ({ toast, remoteReady, serverMode, blockedBy, ...rest }) => rest,
     }
   )
 );

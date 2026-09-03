@@ -29,7 +29,7 @@ export default function RootLayout() {
       if (profiles || posts) useApp.getState().applyRemote(profiles, posts);
       // 서버 세션 (익명 로그인 활성화 시) — 서버 지갑이 엽전의 진실이 된다
       const { user, onboarded, setServerMode } = useApp.getState();
-      if (onboarded && user) { setServerMode(await ensureServerSession(user)); useApp.getState().hydrateMyProfile(); }
+      if (onboarded && user) { setServerMode(await ensureServerSession(user)); useApp.getState().hydrateMyProfile(); void useApp.getState().loadBlocks(); }
       // 위치 — 허용 시 실거리 계산 + 서버 프로필에 반영
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();

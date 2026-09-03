@@ -4,10 +4,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ElemBars } from '../../components/ElemBars';
+import { ReportSheet } from '../../components/ReportSheet';
 import { ProfileInfo } from '../../components/ProfileInfo';
 import { ScoreRing } from '../../components/ScoreRing';
 import { useSpend } from '../../components/SpendFlow';
@@ -35,6 +36,9 @@ export default function CompatDetail() {
   const sendSignal = useApp((st) => st.sendSignal);
   const showToast = useApp((st) => st.showToast);
   const { requestSpend, spendUI } = useSpend();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const isBlocked = useApp((st) => (id ? st.blocked.includes(id) : false));
+  const unblock = useApp((st) => st.unblock);
 
   const p = id ? profileById(id) : null;
   const reading = useMemo(() => {
@@ -66,7 +70,15 @@ export default function CompatDetail() {
         <Pressable onPress={() => router.back()} hitSlop={10}><Ionicons name="chevron-back" size={24} color={C.ink} /></Pressable>
         <Text style={s.topTitle} numberOfLines={1}>{p.name}님 — 프로필 · 사주 궁합</Text>
         <Chip label={`궁합 ${c.total}`} tone="good" />
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={10} accessibilityLabel="더보기"><Ionicons name="ellipsis-horizontal" size={22} color={C.muted} /></Pressable>
       </View>
+      {isBlocked && (
+        <View style={s.blockedBar}>
+          <Text style={s.blockedTxt}>차단한 상대예요 — 서로의 화면에서 보이지 않아요</Text>
+          <Btn label="차단 해제" kind="ghost" small onPress={() => { void unblock(id); showToast('차단을 해제했어요'); }} />
+        </View>
+      )}
+      <ReportSheet visible={menuOpen} onClose={() => setMenuOpen(false)} targetHandle={id} targetName={p.name} onBlocked={() => router.back()} />
 
       {(
         <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 110 }}>
@@ -373,6 +385,8 @@ const s = StyleSheet.create({
   yrLine: { fontSize: 12.5, color: C.ink, lineHeight: 18 },
   yrWho: { fontWeight: '700', color: C.accentDeep },
   sumBox: { backgroundColor: C.accentSoft, borderRadius: R.lg, paddingHorizontal: 16, marginTop: 4 },
+  blockedBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: C.accentSoft, borderBottomWidth: 1, borderBottomColor: C.line },
+  blockedTxt: { flex: 1, fontSize: 12.5, color: C.accentDeep, fontWeight: '600' },
   foot: { fontSize: 12, color: C.faint, lineHeight: 19, marginTop: 30, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.line },
   cta: { position: 'absolute', left: 0, right: 0, bottom: 0, padding: 14, paddingBottom: 22, backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.line },
 });
