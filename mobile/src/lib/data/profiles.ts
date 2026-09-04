@@ -11,6 +11,7 @@ export interface SeedProfile {
   tags: string[];
   colors: [string, string];  // 아바타 그라디언트 (사진 없을 때)
   photoUrl?: string;         // 프로필 사진 (Storage 공개 URL) — 매칭 후 상호 동의 전엔 블러. 반려(rejected)면 비움
+  isReal?: boolean;          // 실계정(auth) — 파일럿 모드에서 서로의 덱에 무조건 노출
   photoStatus?: string;      // none | pending | auto_ok | approved | rejected
   photoRejectReason?: string | null;
   lat?: number | null;

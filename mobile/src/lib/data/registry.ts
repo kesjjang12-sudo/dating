@@ -27,6 +27,9 @@ export function upsertProfile(p: SeedProfile, serverId: string): void {
 
 // 테스트용 고정 추천(핀): viewer 닉네임의 덱 맨 앞에 pinned 닉네임을 무조건 노출
 export interface DeckPin { viewer: string; pinned: string; }
+let pilotPinAllReal = false;
+export const getPilotPinAllReal = (): boolean => pilotPinAllReal;
+export function setPilotPinAllReal(v: boolean): void { pilotPinAllReal = v; }
 let pins: DeckPin[] = [];
 export const getPins = (): DeckPin[] => pins;
 export function setPins(next: DeckPin[]): void { pins = next; }

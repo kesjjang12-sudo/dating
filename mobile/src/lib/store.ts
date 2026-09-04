@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { FeedPost, SEED_POSTS, SeedProfile } from './data/profiles';
-import { getPins, getProfiles, setProfiles } from './data/registry';
+import { getPilotPinAllReal, getPins, getProfiles, setProfiles } from './data/registry';
 import { submitRemotePost } from './data/remote';
 import {
   blockUser, fetchBlocks, getMyHandle, getMyProfileId, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
@@ -141,8 +141,12 @@ export function compatWith(user: UserInfo, profileId: string): CompatResult {
 function pinnedIds(user: UserInfo, hardExclude: Set<string>): string[] {
   const me = getMyHandle();
   const wanted = new Set(getPins().filter((x) => x.viewer === user.name).map((x) => x.pinned));
-  if (wanted.size === 0) return [];
-  return getProfiles().filter((p) => wanted.has(p.name) && p.id !== me && !hardExclude.has(p.id)).map((p) => p.id);
+  const all = getPilotPinAllReal(); // 파일럿: 실계정은 서로의 덱에 전부 (성별·회전 무시)
+  if (wanted.size === 0 && !all) return [];
+  return getProfiles()
+    .filter((p) => (wanted.has(p.name) || (all && p.isReal)) && p.id !== me && !hardExclude.has(p.id))
+    .sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total)
+    .map((p) => p.id);
 }
 
 /** 궁합 정렬 후 날짜 기반 회전으로 3명 선택 — "궁합은 정렬이지 필터가 아니다". 핀 상대는 맨 앞에 붙는다 */

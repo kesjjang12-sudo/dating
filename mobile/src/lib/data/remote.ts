@@ -3,7 +3,7 @@
 
 import { getSupabase } from '../supabase';
 import { FeedPost, SeedProfile } from './profiles';
-import { DeckPin, setPins, setServerIds, upsertProfile } from './registry';
+import { DeckPin, setPilotPinAllReal, setPins, setServerIds, upsertProfile } from './registry';
 
 const TIMEOUT_MS = 5000;
 
@@ -30,7 +30,7 @@ export interface ProfileRow {
   demo_meta: Record<string, unknown> | null;
   bio?: string | null; height_cm?: number | null; region?: string | null; goal?: string | null;
   drink?: string | null; smoke?: string | null; mbti?: string | null; answers?: { q: string; a: string }[] | null;
-  photo_status?: string | null; photo_reject_reason?: string | null;
+  photo_status?: string | null; photo_reject_reason?: string | null; is_real?: boolean | null;
 }
 
 // 실유저(사진 없을 때) 아바타 색 — handle 해시로 결정
@@ -61,6 +61,7 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
     colors: m.colors ?? hashColors(r.handle),
     photoUrl: r.photo_status === 'rejected' ? undefined : r.photos?.[0], // 반려된 사진은 어디에도 노출하지 않음
     photoStatus: r.photo_status ?? undefined,
+    isReal: r.is_real ?? false,
     photoRejectReason: r.photo_reject_reason ?? undefined,
     lat: r.lat,
     lng: r.lng,
@@ -75,7 +76,7 @@ export function rowToProfile(r: ProfileRow): SeedProfile {
   };
 }
 
-export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta,bio,height_cm,region,goal,drink,smoke,mbti,answers,photo_status,photo_reject_reason';
+export const PROFILE_COLUMNS = 'id,handle,nickname,gender,birth_date,hour_branch,job,intro,tags,photos,lat,lng,demo_meta,bio,height_cm,region,goal,drink,smoke,mbti,answers,photo_status,photo_reject_reason,is_real';
 
 export async function fetchRemoteProfiles(): Promise<SeedProfile[] | null> {
   const supabase = getSupabase();
@@ -155,6 +156,17 @@ export async function submitRemotePost(cat: string, title: string, body: string,
   } catch {
     return null;
   }
+}
+
+/** 앱 설정 — 파일럿 스위치 등 */
+export async function fetchAppSettings(): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    const { data } = await withTimeout(supabase.from('app_settings').select('key,value'));
+    const map = Object.fromEntries(((data ?? []) as { key: string; value: unknown }[]).map((r) => [r.key, r.value]));
+    setPilotPinAllReal(map.pilot_pin_all_real === true);
+  } catch { /* 기본값 유지 */ }
 }
 
 /** 고정 추천 목록 (deck_pins) — 레지스트리에 바로 반영 */
