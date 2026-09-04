@@ -1,0 +1,244 @@
+<title>사주 인연 매칭</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#FAF6F5; --card:#FFFFFF; --ink:#201A1C; --sub:#7A6E72;
+  --accent:#D6455D; --accent-ink:#B5364C; --accent-soft:#FBE9EC;
+  --gold:#B98A2F; --gold-soft:#F6EEDC; --line:#EEE2E4; --ok:#2F9E68;
+  --shadow:0 6px 24px rgba(90,40,50,.07);
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#171113; --card:#221A1D; --ink:#F3EAEC; --sub:#A79399;
+    --accent:#E8697F; --accent-ink:#F08B9D; --accent-soft:#3A2228;
+    --gold:#D3A954; --gold-soft:#36301F; --line:#342A2D; --ok:#5CBE8E;
+    --shadow:0 6px 24px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171113; --card:#221A1D; --ink:#F3EAEC; --sub:#A79399;
+  --accent:#E8697F; --accent-ink:#F08B9D; --accent-soft:#3A2228;
+  --gold:#D3A954; --gold-soft:#36301F; --line:#342A2D; --ok:#5CBE8E;
+  --shadow:0 6px 24px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font:15px/1.6 "Noto Sans KR",system-ui,sans-serif; padding:28px 16px 60px}
+.wrap{max-width:420px; margin:0 auto; display:flex; flex-direction:column; gap:16px}
+header{display:flex; align-items:baseline; justify-content:space-between; padding:0 4px}
+.brand{font:700 26px/1.2 "Gowun Batang",serif}
+.brand em{font-style:normal; color:var(--accent)}
+.demo-tag{font-size:12px; color:var(--sub); letter-spacing:.08em}
+.card{background:var(--card); border-radius:18px; padding:20px; box-shadow:var(--shadow)}
+h2{margin:0 0 4px; font-size:17px}
+.hint{margin:0 0 16px; font-size:13px; color:var(--sub)}
+label{display:block; font-size:13px; font-weight:500; color:var(--sub); margin:14px 0 6px}
+input,select{width:100%; padding:11px 12px; font:inherit; color:var(--ink); background:var(--bg); border:1px solid var(--line); border-radius:10px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+.seg{display:flex; gap:6px; background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:4px}
+.seg button{flex:1; padding:8px 0; font:500 14px "Noto Sans KR",sans-serif; color:var(--sub); background:none; border:none; border-radius:7px; cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--card); color:var(--accent-ink); font-weight:700; box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.primary{width:100%; margin-top:20px; padding:14px; font:700 16px "Noto Sans KR",sans-serif; color:#fff; background:var(--accent); border:none; border-radius:12px; cursor:pointer}
+.primary:hover{filter:brightness(1.06)}
+.ghost{width:100%; margin-top:10px; padding:12px; font:500 14px "Noto Sans KR",sans-serif; color:var(--sub); background:none; border:1px solid var(--line); border-radius:12px; cursor:pointer}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{font-size:12px; font-weight:500; padding:3px 9px; border-radius:99px; background:var(--gold-soft); color:var(--gold)}
+.chip.pink{background:var(--accent-soft); color:var(--accent-ink)}
+.member{display:flex; align-items:center; gap:12px; padding:12px 4px; border-top:1px solid var(--line)}
+.member:first-of-type{border-top:none}
+.avatar{flex:none; width:44px; height:44px; border-radius:50%; display:grid; place-items:center; font:700 17px "Gowun Batang",serif; color:var(--accent-ink); background:var(--accent-soft)}
+.avatar.g{color:var(--gold); background:var(--gold-soft)}
+.m-name{font-weight:700}
+.m-sub{font-size:12px; color:var(--sub)}
+.m-score{margin-left:auto; text-align:right; font:700 20px "Gowun Batang",serif; font-variant-numeric:tabular-nums}
+.m-score small{display:block; font:400 11px "Noto Sans KR",sans-serif; color:var(--sub)}
+.hero{ text-align:center; padding:26px 20px 22px}
+.hero .badge{display:inline-block; font-size:12px; font-weight:700; letter-spacing:.06em; color:var(--gold); background:var(--gold-soft); border-radius:99px; padding:4px 12px; margin-bottom:10px}
+.pair{font:700 22px/1.3 "Gowun Batang",serif; margin:2px 0 0}
+.pair span{color:var(--accent)}
+.score-big{font:700 64px/1 "Gowun Batang",serif; color:var(--accent); margin:12px 0 2px; font-variant-numeric:tabular-nums}
+.score-cap{font-size:13px; color:var(--sub)}
+.basis{width:100%; border-collapse:collapse; margin-top:16px; font-size:13px}
+.basis th{font-weight:500; color:var(--sub); text-align:left; padding:7px 0; width:88px; vertical-align:top}
+.basis td{padding:7px 0; border-bottom:1px solid var(--line)}
+.basis tr:last-child td{border-bottom:none}
+.basis b{font-weight:700}
+.basis .note{color:var(--sub); font-size:12px}
+.match-state{display:flex; align-items:center; justify-content:center; gap:6px; margin-top:14px; font-size:13px; font-weight:700; color:var(--ok)}
+footer{font-size:12px; color:var(--sub); text-align:center; line-height:1.7}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion: no-preference){
+  .card{animation:rise .35s ease both}
+  @keyframes rise{from{transform:translateY(8px); opacity:.4}}
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="brand">사주<em>연</em></div>
+    <div class="demo-tag">매칭 엔진 데모</div>
+  </header>
+
+  <!-- 등록 화면 -->
+  <section id="viewForm">
+    <div class="card">
+      <h2>프로필 등록</h2>
+      <p class="hint">생년월일시로 사주 궁합을 계산해 인연을 찾아드려요. 아래는 예시 값으로 채워져 있습니다.</p>
+      <label for="fName">이름</label>
+      <input id="fName" value="이소희" autocomplete="off">
+      <label>성별</label>
+      <div class="seg" id="fGender" role="group" aria-label="성별">
+        <button type="button" data-v="F" aria-pressed="true">여성</button>
+        <button type="button" data-v="M" aria-pressed="false">남성</button>
+      </div>
+      <label for="fBirth">생년월일</label>
+      <input id="fBirth" type="date" value="1996-08-24">
+      <label for="fHour">태어난 시 (선택)</label>
+      <select id="fHour">
+        <option value="">모름</option>
+        <option>자시 (23~01시)</option><option>축시 (01~03시)</option><option>인시 (03~05시)</option>
+        <option>묘시 (05~07시)</option><option value="진시" selected>진시 (07~09시)</option><option>사시 (09~11시)</option>
+        <option>오시 (11~13시)</option><option>미시 (13~15시)</option><option>신시 (15~17시)</option>
+        <option>유시 (17~19시)</option><option>술시 (19~21시)</option><option>해시 (21~23시)</option>
+      </select>
+      <button class="primary" id="btnRegister">등록하고 인연 찾기</button>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>가입 중인 회원</h2>
+      <p class="hint">데모용으로 미리 등록된 회원들이에요.</p>
+      <div id="memberList"></div>
+    </div>
+  </section>
+
+  <!-- 결과 화면 -->
+  <section id="viewResult" hidden>
+    <div class="card hero">
+      <span class="badge" id="topBadge">오늘의 인연</span>
+      <p class="pair" id="pairLine"></p>
+      <div class="score-big" id="topScore"></div>
+      <div class="score-cap">궁합 점수 (100점 만점)</div>
+      <div class="match-state" id="matchState" hidden>✓ 매칭 성사 — 대화를 시작할 수 있어요</div>
+      <table class="basis" id="basisTable"></table>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h2>다른 인연 후보</h2>
+      <p class="hint">궁합 점수순이에요.</p>
+      <div id="candList"></div>
+      <button class="ghost" id="btnReset">다른 프로필로 다시 테스트</button>
+    </div>
+  </section>
+
+  <footer>연주(年柱) 기준 간이 궁합 계산 데모입니다 · 입춘 경계와 일주는 반영하지 않아요<br>
+  지정 인연 규칙: <b>이소희 ↔ 김창식</b> (운영자 설정)</footer>
+</div>
+
+<script>
+"use strict";
+const STEMS="갑을병정무기경신임계", BRANCHES="자축인묘진사오미신유술해";
+const ANIMALS=["쥐","소","호랑이","토끼","용","뱀","말","양","원숭이","닭","개","돼지"];
+const STEM_ELEM="목목화화토토금금수수", BRANCH_ELEM="수토목목토화화토금금토수";
+const SAENG={"목":"화","화":"토","토":"금","금":"수","수":"목"};   // 상생
+const GEUK={"목":"토","토":"수","수":"화","화":"금","금":"목"};   // 상극
+const YUKHAP=[[0,1],[2,11],[3,10],[4,9],[5,8],[6,7]];             // 육합
+const SAMHAP=[[8,0,4],[11,3,7],[2,6,10],[5,9,1]];                 // 삼합
+const CHUNG=[[0,6],[1,7],[2,8],[3,9],[4,10],[5,11]];              // 충
+
+// 운영자 지정 인연 규칙 (데모): 이소희가 등록하면 김창식과 연계
+const MANUAL_LINKS=[["이소희","김창식"]];
+
+const MEMBERS=[
+  {name:"김창식", gender:"M", birth:"1995-03-15", hour:"진시"},
+  {name:"박민준", gender:"M", birth:"1993-11-02", hour:"오시"},
+  {name:"최도현", gender:"M", birth:"1997-07-21", hour:""},
+  {name:"김하늘", gender:"F", birth:"1996-05-09", hour:"묘시"},
+  {name:"윤서아", gender:"F", birth:"1994-12-30", hour:"해시"},
+];
+
+function pillar(birth){
+  const y=+birth.slice(0,4), i=y-4;
+  const s=((i%10)+10)%10, b=((i%12)+12)%12;
+  return {stem:STEMS[s], branch:BRANCHES[b], animal:ANIMALS[b],
+          elem:STEM_ELEM[s], bElem:BRANCH_ELEM[b], bi:b, yin:s%2===1};
+}
+function hash(str){ let h=0; for(const c of str) h=(h*31+c.charCodeAt(0))>>>0; return h; }
+function inPair(list,a,b){ return list.some(p=>p.includes(a)&&p.includes(b)&&a!==b); }
+function sameGroup(groups,a,b){ return a!==b&&groups.some(g=>g.includes(a)&&g.includes(b)); }
+
+function compat(me,other){
+  const A=pillar(me.birth), B=pillar(other.birth);
+  let score=50; const basis=[];
+  // 오행 (천간 기준)
+  if(SAENG[A.elem]===B.elem||SAENG[B.elem]===A.elem){ score+=18;
+    basis.push(["오행",`${A.elem} · ${B.elem} — 상생(相生)`,"서로 기운을 살려주는 관계"]); }
+  else if(A.elem===B.elem){ score+=8;
+    basis.push(["오행",`${A.elem} · ${B.elem} — 비화(比和)`,"같은 기운, 편안하지만 자극은 적음"]); }
+  else if(GEUK[A.elem]===B.elem||GEUK[B.elem]===A.elem){ score-=12;
+    basis.push(["오행",`${A.elem} · ${B.elem} — 상극(相剋)`,"부딪히기 쉬워 노력이 필요한 관계"]); }
+  else basis.push(["오행",`${A.elem} · ${B.elem}`,"생극 관계 없음"]);
+  // 띠 (지지 기준)
+  if(inPair(YUKHAP,A.bi,B.bi)){ score+=15;
+    basis.push(["띠",`${A.animal}띠 · ${B.animal}띠 — 육합(六合)`,"은근히 끌리는 짝"]); }
+  else if(sameGroup(SAMHAP,A.bi,B.bi)){ score+=12;
+    basis.push(["띠",`${A.animal}띠 · ${B.animal}띠 — 삼합(三合)`,"뜻이 잘 맞는 조합"]); }
+  else if(inPair(CHUNG,A.bi,B.bi)){ score-=18;
+    basis.push(["띠",`${A.animal}띠 · ${B.animal}띠 — 충(沖)`,"긴장이 생기기 쉬운 조합"]); }
+  else basis.push(["띠",`${A.animal}띠 · ${B.animal}띠`,"합·충 없음"]);
+  // 음양
+  if(A.yin!==B.yin){ score+=5; basis.push(["음양","음 · 양 — 조화","서로를 보완하는 균형"]); }
+  else basis.push(["음양",A.yin?"음 · 음":"양 · 양","비슷한 성향"]);
+  score+=hash(me.name+other.name)%7-3; // 데모용 미세 변주 (결정적)
+  return {score:Math.max(5,Math.min(99,score)), basis, A, B};
+}
+
+const $=id=>document.getElementById(id);
+let gender="F";
+
+function personSub(p){ const pl=pillar(p.birth);
+  return `${p.birth.replaceAll("-",".")}${p.hour?" · "+p.hour:""} · ${pl.stem}${pl.branch}년 ${pl.animal}띠 · ${pl.elem}(${"木火土金水"["목화토금수".indexOf(pl.elem)]})`; }
+
+function renderMembers(){
+  $("memberList").innerHTML=MEMBERS.map((m,i)=>`
+    <div class="member">
+      <div class="avatar ${i%2?"g":""}">${m.name[0]}</div>
+      <div><div class="m-name">${m.name}</div><div class="m-sub">${personSub(m)}</div></div>
+      <div class="chips" style="margin-left:auto"><span class="chip">${pillar(m.birth).animal}띠</span></div>
+    </div>`).join("");
+}
+
+function register(){
+  const me={name:$("fName").value.trim()||"게스트", gender, birth:$("fBirth").value, hour:$("fHour").value};
+  if(!me.birth){ $("fBirth").focus(); return; }
+  const pool=MEMBERS.filter(m=>m.gender!==me.gender);
+  const linkedName=(MANUAL_LINKS.find(([a,b])=>a===me.name||b===me.name)||[]).find(n=>n!==me.name);
+  const ranked=pool.map(m=>({m,...compat(me,m),linked:m.name===linkedName}))
+    .sort((x,y)=>(y.linked-x.linked)||(y.score-x.score));
+  if(!ranked.length) return;
+  const top=ranked[0];
+  $("topBadge").textContent=top.linked?"운영자 지정 인연":"오늘의 인연";
+  $("pairLine").innerHTML=`${me.name} <span>♥</span> ${top.m.name}`;
+  $("topScore").textContent=top.score;
+  $("matchState").hidden=!top.linked;
+  $("basisTable").innerHTML=
+    `<tr><th>${me.name}</th><td>${personSub(me)}</td></tr>`+
+    `<tr><th>${top.m.name}</th><td>${personSub(top.m)}</td></tr>`+
+    top.basis.map(([l,v,n])=>`<tr><th>${l}</th><td><b>${v}</b><div class="note">${n}</div></td></tr>`).join("")+
+    (top.linked?`<tr><th>연계 사유</th><td><b>지정 매칭 규칙 적용</b><div class="note">${MANUAL_LINKS[0][0]} ↔ ${MANUAL_LINKS[0][1]} — 등록 즉시 연결</div></td></tr>`:"");
+  $("candList").innerHTML=ranked.slice(1).map((r,i)=>`
+    <div class="member">
+      <div class="avatar ${i%2?"g":""}">${r.m.name[0]}</div>
+      <div><div class="m-name">${r.m.name} ${r.linked?'<span class="chip pink">지정 인연</span>':""}</div>
+        <div class="m-sub">${personSub(r.m)}</div></div>
+      <div class="m-score">${r.score}<small>궁합</small></div>
+    </div>`).join("")||'<p class="hint">다른 후보가 없어요.</p>';
+  $("viewForm").hidden=true; $("viewResult").hidden=false; scrollTo({top:0});
+}
+
+$("fGender").addEventListener("click",e=>{
+  const b=e.target.closest("button"); if(!b) return; gender=b.dataset.v;
+  for(const x of $("fGender").children) x.setAttribute("aria-pressed", x===b);
+});
+$("btnRegister").addEventListener("click",register);
+$("btnReset").addEventListener("click",()=>{ $("viewResult").hidden=true; $("viewForm").hidden=false; });
+renderMembers();
+</script>
