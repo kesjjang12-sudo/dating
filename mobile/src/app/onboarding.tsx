@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { SajuCard } from '../components/SajuCard';
 import { Btn } from '../components/ui';
-import { BRANCHES_KO, HOUR_RANGES } from '../lib/saju/ganzhi';
+import { BRANCHES_KO, HOUR_RANGES, hourBranchOf } from '../lib/saju/ganzhi';
 import { fourPillars } from '../lib/saju/manseryeok';
 import { ensureServerSession } from '../lib/server';
 import { useApp } from '../lib/store';
@@ -25,6 +25,13 @@ export default function Onboarding() {
   const [mm, setMm] = useState('');
   const [dd, setDd] = useState('');
   const [hour, setHour] = useState<number | null | undefined>(undefined); // undefined=미선택
+  const [clock, setClock] = useState(''); // "07:13" 직접 입력 → 시진 자동 선택
+  const onClock = (t: string) => {
+    const v = t.replace(/[^0-9:]/g, '').slice(0, 5);
+    setClock(v);
+    const m = /^(\d{1,2}):?(\d{2})$/.exec(v);
+    if (m) { const hh = Number(m[1]), mi = Number(m[2]); if (hh < 24 && mi < 60) setHour(hourBranchOf(hh, mi)); }
+  };
 
   const birthValid = useMemo(() => {
     const y = Number(yy), m = Number(mm), d = Number(dd);
@@ -103,6 +110,10 @@ export default function Onboarding() {
               <Text style={s.sub}>
                 시(時)까지 있으면 <Text style={{ fontWeight: '700', color: C.ink }}>정밀 궁합</Text> 배지가 붙어요. 몰라도 괜찮아요 — 삼주 기준으로 궁합을 계산해요.
               </Text>
+              <Text style={s.field}>태어난 시각을 알면 직접 입력 (예: 07:13)</Text>
+              <TextInput style={s.input} value={clock} onChangeText={onClock} placeholder="07:13" placeholderTextColor={C.faint} keyboardType="numbers-and-punctuation" maxLength={5} />
+              <Text style={s.hint}>한국 출생 기준 30분 보정 — 07:13은 묘시, 07:30부터 진시예요 (점신·사주도령과 같은 기준)</Text>
+              <View style={{ height: 12 }} />
               <View style={s.grid}>
                 {BRANCHES_KO.map((b, i) => (
                   <Pressable key={b} style={[s.tg, hour === i && s.tgSel]} onPress={() => setHour(i)}>
@@ -169,6 +180,7 @@ const s = StyleSheet.create({
     minWidth: 0, // 웹 <input> 고유 너비가 flex 축소를 막아 생년월일 3칸이 가로로 넘치는 것 방지
   },
   err: { color: C.accentDeep, fontSize: 12.5, marginTop: 8 },
+  hint: { fontSize: 11.5, color: C.faint, lineHeight: 17, marginTop: 7 },
   genBtn: { flex: 1, backgroundColor: C.card, borderWidth: 1.5, borderColor: C.line2, borderRadius: 11, paddingVertical: 12, alignItems: 'center' },
   genSel: { borderColor: C.accent, backgroundColor: C.accentSoft },
   genTxt: { fontWeight: '700', color: C.ink, fontSize: 14.5 },

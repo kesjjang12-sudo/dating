@@ -49,10 +49,10 @@ function termMs(year: number, encoded: number): number {
   return Date.UTC(year, mm - 1, dd, hh, mi);
 }
 
-/** 출생 시각(비교용 ms). 시진은 중앙시(자=0시, 축=2시 …), 미상이면 정오 */
+/** 출생 시각(비교용 ms). 시진은 중앙시(한국 30분 보정: 자=00:30, 축=02:30 …), 미상이면 정오 */
 function birthMs(y: number, m: number, d: number, hourBranch: number | null): number {
-  const hour = hourBranch === null ? 12 : (hourBranch * 2) % 24;
-  return Date.UTC(y, m - 1, d, hour, 0);
+  if (hourBranch === null) return Date.UTC(y, m - 1, d, 12, 0);
+  return Date.UTC(y, m - 1, d, (hourBranch * 2) % 24, 30);
 }
 
 /** 입춘 입기 시각 */

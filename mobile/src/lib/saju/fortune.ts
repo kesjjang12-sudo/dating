@@ -50,10 +50,10 @@ function categoryOf(userDayStem: number, todayStem: number): Category {
 function luckyHourOf(userDayBranch: number): string {
   for (let b = 0; b < 12; b++) {
     if (branchesSixHarmony(userDayBranch, b)) {
-      return `${HOUR_RANGES[b].replace('–', '시–')}시 (${BRANCHES_KO[b]}시)`;
+      return `${HOUR_RANGES[b]} (${BRANCHES_KO[b]}시)`;
     }
   }
-  return '11시–13시 (오시)';
+  return '11:30–13:30 (오시)';
 }
 
 export function dailyFortune(date: Date, user: FourPillars): DailyFortune {

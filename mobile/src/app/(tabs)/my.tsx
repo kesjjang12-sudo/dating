@@ -79,6 +79,7 @@ export default function My() {
     { label: '스토어', right: `엽전 ${coins.toLocaleString()}`, onPress: () => setStoreOpen(true) },
     { label: '인증 센터', right: '본인 ✓ · 직장 미인증', onPress: () => showToast('인증 센터 (데모) — 직장·학교 인증은 P1 범위예요') },
     { label: '미션', right: `연속 출석 ${streak}일`, onPress: () => setMissionOpen(true) },
+    { label: '내 사주 풀이', right: '명식 · 기질 · 대운', onPress: () => router.push('/saju/me') },
     { label: '내 사주 정보', right: `${user.hourBranch === null ? '시간 미상' : BRANCHES_KO[user.hourBranch] + '시'} · 수정 ${2 - user.hourEdits}회 남음`, onPress: () => setSajuOpen(true) },
     { label: '지인 차단', right: '켜짐', onPress: () => showToast('연락처 기반 지인 차단 (데모)') },
     {
@@ -218,7 +219,7 @@ export default function My() {
 
       <Sheet visible={sajuOpen} onClose={() => { setSajuOpen(false); setHourPick(false); }}>
         <SheetTitle>내 사주 정보</SheetTitle>
-        <SheetDesc>생년월일은 본인인증 값이라 수정할 수 없어요. 출생시간은 {2 - user.hourEdits}회 더 수정할 수 있어요.</SheetDesc>
+        <SheetDesc>생년월일은 본인인증 값이라 수정할 수 없어요. 출생시간은 {2 - user.hourEdits}회 더 수정할 수 있어요. 시진은 한국 출생 기준 30분 보정(예: 07:13 → 묘시, 07:30 → 진시)으로, 점신·사주도령과 같은 경계예요.</SheetDesc>
         <SajuCard
           pillars={pillars}
           birthLabel={user.hourBranch === null ? `${user.birth.replace(/-/g, '. ')} · 시간 미상` : `${user.birth.replace(/-/g, '. ')} · ${BRANCHES_KO[user.hourBranch]}시생`}
