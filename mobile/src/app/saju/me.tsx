@@ -6,13 +6,13 @@ import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PillarGrid, PillarSummary } from '../../components/PillarGrid';
+import { EL_COLOR, PillarGrid, PillarSummary } from '../../components/PillarGrid';
 import { Topic } from '../../components/Topic';
 import { Btn, Chip } from '../../components/ui';
 import { daeun } from '../../lib/saju/daeun';
 import { BRANCHES_KO, pillarHanja, pillarKo, splitGanzhi } from '../../lib/saju/ganzhi';
 import { fromDateString, monthPillar } from '../../lib/saju/manseryeok';
-import { analyze, DM, GROUP_OF, luckNow, personSections, Section, sipsin, sipsinB, spouseElement, stage12, yearLineFor, YEAR_SHORT } from '../../lib/saju/reading';
+import { analyze, characterLine, DM, elementDist, GROUP_OF, innerRelations, luckNow, personSections, Section, sipsin, sipsinB, spouseElement, stage12, yearLineFor, YEAR_SHORT } from '../../lib/saju/reading';
 import { GLOSSARY, STAGE_SHORT, themMore, YEAR_ONE } from '../../lib/saju/reading2';
 import { useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
@@ -45,14 +45,15 @@ export default function MySaju() {
     };
     const dm = DM[a.dayStem];
     const spouseEl = spouseElement(a);
+    const ch = characterLine(a);
     const glance: Section = {
       key: 'glance', label: '한눈에', title: `${a.nick}의 ${a.element} — ${a.gyeokguk}, ${a.weak ? '신약' : '신강'}`,
-      tldr: `나는 ${dm.one}. 연애는 ${dm.loveOne}. 잘 맞는 짝은 ${EL_WORD[spouseEl]}(${spouseEl}) 기운의 사람.`,
+      tldr: `${ch.who}, ${ch.spoken}. 연애는 ${ch.love}. 잘 맞는 짝은 ${EL_WORD[spouseEl]}(${spouseEl}) 기운의 사람.`,
       paras: [
         `${pillarKo(pillars.year)}년 ${pillarKo(pillars.month)}월 ${pillarKo(pillars.day)}일${pillars.hour ? ` ${pillarKo(pillars.hour)}시` : ' (시간 미상)'} · ${a.animal}띠 · 일간 ${pillarKo(pillars.day)[0]}${a.element}. 아래는 이 명식을 궁합 상세와 같은 기준으로 읽은 것이고, 상대를 열면 "이 사람이 나에게 무엇을 보태고 무엇을 흔드는가"가 이 기준 위에서 계산돼요.`,
       ],
     };
-    return { a, pillars, sections: personSections(a, now), more: themMore(a), cycles, forward: dd?.forward, daeunSu: dd?.daeunSu, age, yearS, glance, dm };
+    return { a, pillars, sections: personSections(a, now), more: themMore(a), cycles, dist: elementDist(a), inner: innerRelations(a), forward: dd?.forward, daeunSu: dd?.daeunSu, age, yearS, glance, dm, ch };
   }, [user]);
 
   if (!user || !r) return null;
@@ -68,12 +69,41 @@ export default function MySaju() {
       <ScrollView contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 40 }}>
         <View style={s.hero}>
           <Text style={s.heroK}>{user.name} · {user.birth.replace(/-/g, '.')}</Text>
-          <Text style={s.heroH}>{a.nick} — {r.dm.one}</Text>
+          <Text style={s.heroH}>{a.nick} — {r.ch.who}</Text>
         </View>
 
         <SecLabel n="一" label="나의 명식" />
         <PillarGrid a={a} />
         <PillarSummary a={a} />
+
+        <Text style={s.tblTitle}>오행 · 십성 분포</Text>
+        <View style={s.tbl}>
+          {r.dist.map((d, i) => (
+            <View key={d.el} style={[s.row, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+              <Text style={[s.distEl, { color: EL_COLOR[d.el] }]}>{d.el}</Text>
+              <Text style={s.distG}>{d.group}</Text>
+              <View style={s.bar}><View style={[s.barFill, { width: `${Math.min(100, d.pct * 2)}%`, backgroundColor: EL_COLOR[d.el] }]} /></View>
+              <Text style={s.distPct}>{d.pct}%</Text>
+              <Text style={[s.lvl, d.level === '발달' && { color: C.accentDeep }, d.level === '부족' && { color: C.coin }, d.level === '없음' && { color: C.faint }]}>{d.level}</Text>
+            </View>
+          ))}
+        </View>
+        <Text style={s.note}>비겁=나와 같은 기운 · 식상=내가 낳는 기운 · 재성=내가 다루는 기운 · 관성=나를 누르는 기운 · 인성=나를 낳는 기운</Text>
+
+        <Text style={s.tblTitle}>원국 안의 글자 관계 — 합 · 충 · 형 · 파</Text>
+        <View style={s.tbl}>
+          {r.inner.length === 0 && <Text style={s.note}>원국 안에 합·충·형·파가 없어요 — 글자들이 서로 간섭하지 않는 담백한 명식이에요.</Text>}
+          {r.inner.map((x, i) => (
+            <View key={i} style={[s.innerRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <Chip label={x.kind} tone={x.tone === 'good' ? 'good' : x.tone === 'warn' ? 'acc' : 'mut'} />
+                <Text style={s.innerPair}>{x.pair}</Text>
+              </View>
+              <Text style={s.innerDesc}>{x.desc}</Text>
+            </View>
+          ))}
+        </View>
+
         <Topic sec={r.glance} />
 
         <SecLabel n="二" label="타고난 나" />
@@ -143,7 +173,17 @@ const s = StyleSheet.create({
   secNum: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: C.line2, alignItems: 'center', justifyContent: 'center' },
   secNumTxt: { fontFamily: F.serif, fontSize: 12, color: C.muted },
   secTitle: { fontFamily: F.serif, fontSize: 20, color: C.ink },
-  note: { fontSize: 13, color: C.muted, lineHeight: 20, marginBottom: 10 },
+  note: { fontSize: 12.5, color: C.muted, lineHeight: 19, marginTop: 8, marginBottom: 10 },
+  tblTitle: { fontSize: 12.5, fontWeight: '700', color: C.muted, marginTop: 18, marginBottom: 8 },
+  distEl: { width: 18, fontFamily: F.serif, fontSize: 17 },
+  distG: { width: 34, fontSize: 12, color: C.muted },
+  bar: { flex: 1, height: 6, borderRadius: 3, backgroundColor: C.line, overflow: 'hidden' },
+  barFill: { height: 6, borderRadius: 3 },
+  distPct: { width: 44, fontSize: 12, color: C.ink, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  lvl: { width: 30, fontSize: 12, fontWeight: '700', color: C.good, textAlign: 'right' },
+  innerRow: { padding: 12, gap: 6 },
+  innerPair: { fontSize: 12.5, color: C.ink, fontWeight: '600' },
+  innerDesc: { fontSize: 12.5, color: C.muted, lineHeight: 18 },
   tbl: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.md, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, paddingVertical: 11 },
   rowNow: { backgroundColor: C.accentSoft },

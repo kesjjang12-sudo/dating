@@ -10,7 +10,7 @@ import {
   Pillar, splitGanzhi, STEMS_HANJA, STEMS_KO,
 } from './ganzhi';
 import { monthPillar } from './manseryeok';
-import { CHEONEUL, DM, GROUP_OF, PersonAnalysis, Relation, Section, sipsin, sipsinB, Sipsin, spouseElement, stage12 } from './reading';
+import { characterLine, CHEONEUL, DM, GROUP_OF, PersonAnalysis, Relation, Section, sipsin, sipsinB, Sipsin, spouseElement, stage12 } from './reading';
 
 const hasFinal = (w: string) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0; };
 const GA = (w: string) => (hasFinal(w) ? '이' : '가');
@@ -177,9 +177,10 @@ function meSections(me: PersonAnalysis): Section[] {
   const dm = DM[me.dayStem];
   const dominant = (Object.entries(me.groupCount) as [string, number][]).sort((x, y) => y[1] - x[1])[0][0];
   const spouseEl = spouseElement(me);
+  const ch = characterLine(me);
   return [{
     key: 'me', label: '나의 사주 한눈에', title: `${me.nick}의 ${me.element} — ${me.gyeokguk}, ${me.weak ? '신약' : '신강'}`,
-    tldr: `나는 ${dm.one}. 연애는 ${dm.loveOne}. 잘 맞는 짝은 ${EL_WORD[spouseEl]}(${spouseEl}) 기운의 사람.`,
+    tldr: `${ch.who}, ${ch.spoken}. 연애는 ${ch.love}. 잘 맞는 짝은 ${EL_WORD[spouseEl]}(${spouseEl}) 기운의 사람.`,
     paras: [
       `${me.name}님의 일간(사주에서 "나"를 뜻하는 글자)은 ${STEMS_KO[me.dayStem]}${me.element}(${STEMS_HANJA[me.dayStem]}), ${me.nick}입니다. ${dm.who.split('. ').slice(0, 2).join('. ')}.`,
       `${me.weak ? `신약한 명식이라 ${me.favorable.join('·')} 기운을 반기고, ${me.avoid} 기운이 더 오면 부담이 됩니다.` : `신강한 명식이라 ${me.favorable.join('·')} 기운으로 풀어내야 편해집니다.`} 십성으로는 ${dominant}의 기운이 가장 두드러져요. 아래 궁합은 이 기준에서 "상대가 나에게 무엇을 보태고 무엇을 흔드는가"로 읽습니다.`,

@@ -226,6 +226,72 @@ const spouseHouseText = (pi: PillarInfo, gender: 'M' | 'F'): string => {
   return t;
 };
 
+// 일지 십신 = 겉으로 드러나는 생활 태도. 일간 원형(속)만으로 성격을 쓰면 일지가 활동적인 사람이 "조용한 사람"으로 나오는 오류가 난다.
+const ILJI: Record<Sipsin, { short: string; full: string; love: string }> = {
+  비견: { short: '친구처럼 대등하게 어울리는', full: '일지가 비견이라 사람들과 대등하게 어울리고 제 몫을 분명히 챙깁니다. 고집이 있어 지는 걸 싫어해요.', love: '친구처럼 편하게 사귀고 주도권은 잘 안 내주는 편' },
+  겁재: { short: '승부욕이 있고 사람을 모으는', full: '일지가 겁재라 승부욕이 있고 사람을 모으는 힘이 있습니다. 씀씀이가 크고 경쟁 상황에서 살아나요.', love: '밀당과 자극이 있어야 불붙는 편' },
+  식신: { short: '먹고 즐기고 표현하는', full: '일지가 식신이라 먹고 즐기고 말하는 데서 힘이 납니다. 사람 앞에서 밝고, 담아 두는 것보다 꺼내 놓는 쪽이에요.', love: '같이 먹고 웃으며 표현을 아끼지 않는 편' },
+  상관: { short: '말이 직설적이고 재기 있는', full: '일지가 상관이라 말이 빠르고 직설적이며 재기가 있습니다. 틀린 건 틀렸다고 하고, 규칙보다 자기 방식을 따르는 편이에요.', love: '표현이 화끈한 대신 말로 상처를 줄 수 있는 편' },
+  편재: { short: '활동적이고 사교적이며 일을 벌리는', full: '일지가 편재라 활동적이고 사교적이며 일을 벌리는 쪽입니다. 집에 있기보다 나가서 사람을 만나고, 돈과 기회가 도는 자리에 서 있어야 힘이 나요.', love: '자주 만나고 잘 놀지만 붙잡으려 들면 빠져나가는 편' },
+  정재: { short: '실속 있고 꼼꼼하게 관리하는', full: '일지가 정재라 실속 있고 꼼꼼하며 안정을 중시합니다. 벌리기보다 지키고, 약속을 지키는 신뢰형이에요.', love: '천천히 오래 안정적으로 가는 실속형' },
+  편관: { short: '결단이 빠르고 밀어붙이는', full: '일지가 편관이라 결단이 빠르고 밀어붙이는 힘이 있습니다. 긴장 속에서 집중이 살고, 책임을 크게 지는 편이에요.', love: '강하게 끌리고 빠르게 결정하는 편' },
+  정관: { short: '반듯하고 원칙을 지키는', full: '일지가 정관이라 반듯하고 원칙을 지키며 예의가 바릅니다. 조직에서 신뢰를 얻고, 관계를 공식적으로 만드는 쪽이에요.', love: '반듯하게 사귀고 관계를 공식화하는 편' },
+  편인: { short: '생각이 많고 자기만의 세계가 있는', full: '일지가 편인이라 생각이 많고 자기만의 세계가 있습니다. 독특한 관점이 강점이고, 혼자 있는 시간이 필요해요.', love: '둘만의 세계를 만들고 겉으로는 덤덤한 편' },
+  정인: { short: '배우고 받아들이는 차분한', full: '일지가 정인이라 배우고 받아들이는 힘이 있고 차분합니다. 어른·멘토에게 사랑받고, 서두르지 않아요.', love: '기댈 수 있는 사람에게 끌리는, 천천히 데워지는 편' },
+};
+const spoken = (a: PersonAnalysis) => a.groupCount.식상 >= 1 ? '아닌 건 아니라고 말하는 편' : a.groupCount.관성 >= 2 ? '불편해도 참고 넘기는 편' : '할 말은 가려서 하는 편';
+
+/** 성격 한 줄 — 일간(속) + 일지(겉) + 표현 방식. 화면의 결론 줄과 궁합의 "나의 사주" 요약이 같이 쓴다 */
+export function characterLine(a: PersonAnalysis): { who: string; spoken: string; love: string } {
+  const dm = DM[a.dayStem], ilji = ILJI[a.pillars[1].branchSipsin!];
+  return { who: `속은 ${dm.one}, 겉은 ${ilji.short} 사람`, spoken: spoken(a), love: `${ilji.love}. 속마음은 ${dm.loveOne}` };
+}
+
+/** 원국 안의 글자 관계 — 천간합·충, 지지 육합·삼합(반합)·충·형·파·원진 */
+export interface InnerRelation { kind: string; pair: string; tone: 'good' | 'warn' | 'mut'; desc: string; }
+const HYEONG: [number, number][] = [[0, 3], [2, 5], [5, 8], [2, 8], [1, 10], [10, 7], [1, 7]];
+const SELF_HYEONG = new Set([4, 6, 9, 11]);
+const PA: [number, number][] = [[0, 9], [1, 4], [2, 11], [3, 6], [5, 8], [7, 10]];
+const pairIn = (t: [number, number][], a: number, b: number) => t.some(([x, y]) => (a === x && b === y) || (a === y && b === x));
+export function innerRelations(a: PersonAnalysis): InnerRelation[] {
+  const out: InnerRelation[] = [];
+  const ps = a.pillars.filter((pi) => pi.p);
+  const nm = (pi: PillarInfo, stem: boolean) => `${pi.label.replace('주', stem ? '간' : '지')}`;
+  for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+    const A = ps[i], B = ps[j], x = A.p!, y = B.p!;
+    const stemPair = `${STEMS_HANJA[x.stem]}(${nm(A, true)})·${STEMS_HANJA[y.stem]}(${nm(B, true)})`;
+    if (stemsCombine(x.stem, y.stem)) out.push({ kind: `${STEMS_KO[Math.min(x.stem, y.stem)]}${STEMS_KO[Math.max(x.stem, y.stem)]}합`, pair: stemPair, tone: 'good', desc: (A.label === '일주' || B.label === '일주') ? '일간이 합을 이룹니다. 그 글자의 십신(사람·역할)에 마음이 묶이기 쉬워요.' : '천간이 합해 두 기운이 하나로 묶입니다.' });
+    else if ((x.stem + 6) % 10 === y.stem || (y.stem + 6) % 10 === x.stem) out.push({ kind: `${STEMS_KO[x.stem]}${STEMS_KO[y.stem]}충`, pair: stemPair, tone: 'warn', desc: '천간이 부딪힙니다. 생각과 말이 안에서 갈등하는 자리 — 결정을 두 번 바꾸는 버릇으로 나타나요.' });
+    const bx = x.branch, by = y.branch;
+    const branchPair = `${BRANCHES_HANJA[bx]}(${nm(A, false)})·${BRANCHES_HANJA[by]}(${nm(B, false)})`;
+    if (branchesSixHarmony(bx, by)) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}육합`, pair: branchPair, tone: 'good', desc: '지지가 붙는 합. 두 자리의 사람·환경이 서로 돕습니다.' });
+    else if (branchesTrine(bx, by)) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}반합`, pair: branchPair, tone: 'good', desc: '삼합의 두 글자. 같은 방향으로 힘이 모입니다.' });
+    else if (branchesClash(bx, by)) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}충`, pair: branchPair, tone: 'warn', desc: (A.label === '일주' || B.label === '일주') ? '배우자궁이 충을 맞습니다. 가까운 관계에서 변동이 잦고, 안정보다 움직임을 택하는 자리예요.' : '지지가 부딪힙니다. 두 자리 사이에 변동·이동이 생겨요.' });
+    if (isWonjin(bx, by)) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}원진`, pair: branchPair, tone: 'warn', desc: '이유 없이 거슬리는 기운이 안에 있습니다. 스스로에게 까다로워지는 자리예요.' });
+    if (pairIn(HYEONG, bx, by) || (bx === by && SELF_HYEONG.has(bx))) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}형`, pair: branchPair, tone: 'warn', desc: '형(刑) — 다듬어지는 자리. 예민함·수술·법적 일로 나타나기도 하고, 전문 기술로 쓰면 무기가 됩니다.' });
+    if (pairIn(PA, bx, by)) out.push({ kind: `${BRANCHES_KO[bx]}${BRANCHES_KO[by]}파`, pair: branchPair, tone: 'mut', desc: '파(破) — 깨졌다 다시 맞추는 자리. 관계나 계획이 한 번 흔들린 뒤 자리 잡아요.' });
+  }
+  return out;
+}
+
+/** 오행·십성 분포 — 글자 수 기준 %, 부족/적정/발달 */
+export interface ElementDist { el: Element; group: Group; count: number; pct: number; level: '없음' | '부족' | '적정' | '발달'; }
+export function elementDist(a: PersonAnalysis): ElementDist[] {
+  const total = a.pillars.filter((pi) => pi.p).length * 2;
+  const groupOfEl = (el: Element): Group => el === a.element ? '비겁' : GEN[a.element] === el ? '식상' : CTRL[a.element] === el ? '재성' : CTRL_BY[a.element] === el ? '관성' : '인성';
+  return ELEMENTS.map((el) => {
+    const c = a.elementCount[el];
+    return { el, group: groupOfEl(el), count: c, pct: Math.round((c / total) * 1000) / 10, level: c === 0 ? '없음' : c === 1 ? '부족' : c === 2 ? '적정' : '발달' };
+  });
+}
+
+const elementBalanceText = (a: PersonAnalysis, missing: Element[]): string => {
+  const over = ELEMENTS.filter((e) => a.elementCount[e] >= 3), low = ELEMENTS.filter((e) => a.elementCount[e] === 1);
+  if (missing.length) return ` 명식에 ${missing.join('·')} 기운이 비어 있어 — 그 기운을 가진 사람이나 환경이 이 사주의 약이 됩니다.`;
+  if (over.length || low.length) return ` 오행으로는 ${over.length ? `${over.join('·')} 기운이 발달하고` : ''}${over.length && low.length ? ' ' : ''}${low.length ? `${low.join('·')} 기운이 부족해` : ''} — ${over.length ? `${over.join('·')} 쪽으로 쏠리기 쉽고, ` : ''}${low.length ? `${low.join('·')} 기운을 가진 사람·환경이 균형을 잡아 줍니다.` : '균형을 의식해야 합니다.'}`;
+  return ' 오행이 고르게 갖춰져 한쪽으로 크게 치우치지 않는 명식입니다.';
+};
+
 /** 한 사람의 사주 읽기 — 기질·연애·결혼·재물. 각 장은 결론(tldr) 한 줄을 먼저 두고 근거를 잇는다 */
 export function personSections(a: PersonAnalysis, dae: LuckNow | null): Section[] {
   const dm = DM[a.dayStem];
@@ -237,19 +303,24 @@ export function personSections(a: PersonAnalysis, dae: LuckNow | null): Section[
   const spouseHouse = a.pillars[1];
   const seasonEl = branchElement(a.pillars[2].p!.branch);
 
+  const ilji = ILJI[spouseHouse.branchSipsin!];
+  const lively = ['편재', '식신', '상관', '겁재'].includes(spouseHouse.branchSipsin!);
   const temperament: string[] = [
     `${a.name}님의 일간(日干 — 태어난 날의 천간, 사주에서 "나"를 뜻하는 글자)은 ${STEMS_KO[a.dayStem]}${a.element}(${STEMS_HANJA[a.dayStem]}), ${a.nick}입니다. ${dm.who}`,
+    `일간이 "속"이라면 일지(태어난 날의 지지, 배우자궁)는 "겉으로 드러나는 생활 태도"입니다. ${a.name}님의 일지는 ${BRANCHES_KO[spouseHouse.p!.branch]}(${spouseHouse.branchSipsin}) — ${ilji.full} 그래서 남들이 보는 ${a.name}님은 ${ilji.short} 사람이고, ${spoken(a)}이에요.${lively && ['정', '계', '을', '기', '신'].includes(STEMS_KO[a.dayStem]) ? ` 일간 원형(${a.nick})의 조용한 인상보다 일지의 활동성이 먼저 보이는 유형입니다.` : ''}`,
     `월지(태어난 달의 지지)가 ${BRANCHES_KO[a.pillars[2].p!.branch]}(${seasonEl})${IRA(seasonEl)} ${a.gyeokguk}을 이룹니다. 격국(格局)은 이 사람이 세상에 나서는 방식이에요. 명식 전체의 힘은 ${a.weak ? '신약(身弱)' : '신강(身强)'}입니다. ${a.weak ? `신약은 나쁘다는 뜻이 아니라 혼자보다 사람·배움과 함께 있을 때 잘 되는 사주라는 뜻이에요. ${a.favorable.join('·')} 기운이 힘이 되고, ${a.avoid} 기운이 더 오면 부담이 됩니다.` : `신강은 가진 힘이 넉넉해 쓸 곳이 있어야 편한 사주라는 뜻이에요. ${a.favorable.join('·')} 기운으로 풀어낼 때 빛나고, 힘을 쓸 곳(일·표현·책임)이 없으면 오히려 답답해집니다.`}`,
-    GROUP_TEXT[dominant[0]] + (missing.length ? ` 명식에 ${missing.join('·')} 기운이 비어 있어 — 그 기운을 가진 사람이나 환경이 이 사주의 약이 됩니다.` : ' 오행이 고르게 갖춰져 한쪽으로 크게 치우치지 않는 명식입니다.'),
+    GROUP_TEXT[dominant[0]] + (dominant[0] === '관성' && (a.groupCount.식상 >= 1 || a.groupCount.재성 >= 1) ? ' 다만 식상·재성이 살아 있어 눌리기만 하는 사람은 아니에요 — 할 말은 하고, 대신 책임을 크게 지는 쪽입니다.' : '') + elementBalanceText(a, missing),
   ];
 
-  const love: string[] = [dm.love];
+  const love: string[] = [`${dm.love}`, `실제 연애 행동은 일지(배우자궁)가 더 크게 정합니다. ${a.name}님의 일지 ${spouseHouse.branchSipsin} — ${ilji.love}.`];
   const romance = a.badges.filter((b) => b.label === '도화살' || b.label === '홍염살');
   if (romance.length) love.push(`${romance.map((b) => `${b.label}(${b.where})`).join('·')}이 있습니다. 도화·홍염은 매력의 살(煞)이라, 굳이 애쓰지 않아도 주변에서 먼저 다가오는 유형이에요. 첫인상에서 "뭔가 있다"는 소리를 듣는 사주입니다.`);
   else love.push('도화·홍염처럼 스스로 매력을 뿜는 살은 없습니다. 첫눈에 띄는 타입보다 알고 보면 좋은 사람형이라, 시간을 함께 보낼수록 진가가 드러나요.');
   if (gm) love.push(`${gm.label.replace('주', '지')} ${BRANCHES_KO[gm.p!.branch]}가 공망(空亡 — 자리는 있는데 비어 있다는 뜻)입니다. ${gm.label === '시주' ? '말년·자식 자리가 비어 정신적 가치를 좇는 쪽으로 읽고, ' : ''}인연에서는 다가오는 사람은 많은데 정작 마음이 채워지는 사람은 드문 시기가 있을 수 있습니다.`);
   if (a.groupCount.식상 >= 2) love.push('식상이 강해 좋으면 말과 표정에 다 드러나고, 싫으면 그것도 다 드러납니다. 상대의 허점을 정확히 짚는 말이 나오는 별이라 — 이기는 말을 잘 하는 대신, 이기고 나서 관계가 식는 경험을 조심해야 해요.');
-  if (a.groupCount.관성 >= 2) love.push('관성이 강해 상대 눈치를 많이 보고 참는 편입니다. "괜히 말했다가 불편해질까" 재다가 타이밍을 놓치는 일이 잦고, 불만을 말하지 않고 쌓다가 조용히 등을 돌리는 것이 이 사주의 연애 약점이에요.');
+  if (a.groupCount.관성 >= 2) love.push(a.groupCount.식상 >= 1
+    ? '관성이 많아 상대 눈치를 보긴 하는데, 식상이 있어 결국은 말합니다. 다만 말하고 나서 "괜히 했나" 하는 뒷맛이 남는 편이라 — 말한 뒤 스스로를 탓하지 않는 것이 이 사주의 연애 요령이에요.'
+    : '관성이 강해 상대 눈치를 많이 보고 참는 편입니다. "괜히 말했다가 불편해질까" 재다가 타이밍을 놓치는 일이 잦고, 불만을 말하지 않고 쌓다가 조용히 등을 돌리는 것이 이 사주의 연애 약점이에요.');
 
   const marriage: string[] = [
     spouseHouseText(spouseHouse, a.gender),
@@ -275,9 +346,9 @@ export function personSections(a: PersonAnalysis, dae: LuckNow | null): Section[
   const stGood = STAGE_GOOD.has(spouseHouse.stage!), stBad = STAGE_BAD.has(spouseHouse.stage!);
   return [
     { key: 'who', label: '타고난 기질', title: `${a.nick} — ${a.gyeokguk}, ${a.weak ? '신약' : '신강'}`, paras: temperament,
-      tldr: `${dm.one}. ${a.weak ? '혼자보다 사람·배움과 함께일 때 잘 되는 사주' : '힘이 넉넉해 쓸 곳이 있어야 편한 사주'}예요.` },
+      tldr: `속은 ${dm.one}, 겉은 ${ilji.short} 사람. ${spoken(a)}이고, ${a.weak ? '힘은 사람·환경에서 충전돼요(신약)' : '가진 힘을 쓸 곳이 있어야 편해요(신강)'}.` },
     { key: 'love', label: '연애 스타일', title: romance.length ? '끌어당기는 사람' : '알고 보면 좋은 사람', paras: love,
-      tldr: `${dm.loveOne}. ${romance.length ? '먼저 다가오는 사람이 많은 타입' : '알수록 좋아지는 타입'}이에요.` },
+      tldr: `${ilji.love}. 속마음은 ${dm.loveOne}. ${romance.length ? '먼저 다가오는 사람이 많은 타입' : '알수록 좋아지는 타입'}이에요.` },
     { key: 'marry', label: '결혼운 · 배우자상', title: `배우자궁 ${spouseHouse.branchSipsin} · ${spouseHouse.stage}`, paras: marriage,
       tldr: `배우자 자리는 ${stGood ? '든든하게 살아 있는 자리' : stBad ? '가까울수록 예민해지는 자리' : '무난한 자리'}, 잘 맞는 짝은 ${ELEMENT_LABEL[spouseEl]}(${spouseEl}) 기운의 사람이에요.${dae?.marriage ? ' 지금이 인연 대운입니다.' : ''}` },
     { key: 'work', label: '재물 · 일', title: hasFood && hasWealth ? '만든 것이 돈이 되는 구조' : '이 사주가 돈을 버는 방식', paras: work,
