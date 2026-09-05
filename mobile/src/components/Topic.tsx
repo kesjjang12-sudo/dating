@@ -32,10 +32,11 @@ export function VerdictCard({ sec }: { sec: Section }) {
       {sec.paras.map((t, i) => {
         const cut = t.indexOf(' — ');
         const k = cut > 0 ? t.slice(0, cut) : null, body = cut > 0 ? t.slice(cut + 3) : t;
+        const cliff = k === '그런데';
         return (
-          <View key={i} style={s.vRow}>
-            {k && <Text style={s.vK}>{k}</Text>}
-            <Text style={s.vP}>{body}</Text>
+          <View key={i} style={[s.vRow, cliff && s.vCliff]}>
+            {k && <Text style={[s.vK, cliff && { color: C.accentDeep }]}>{k}</Text>}
+            <Text style={[s.vP, cliff && s.vCliffTxt]}>{body}</Text>
           </View>
         );
       })}
@@ -58,4 +59,6 @@ const s = StyleSheet.create({
   vRow: { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.line },
   vK: { fontSize: 12, fontWeight: '800', color: C.muted, letterSpacing: 0.4, marginBottom: 4 },
   vP: { fontSize: 14.5, color: C.ink, lineHeight: 23 },
+  vCliff: { borderTopColor: C.accent },
+  vCliffTxt: { fontFamily: F.serif, fontSize: 16.5, lineHeight: 26, color: C.ink },
 });

@@ -10,7 +10,7 @@ import {
   Pillar, splitGanzhi, STEMS_HANJA, STEMS_KO,
 } from './ganzhi';
 import { monthPillar } from './manseryeok';
-import { characterLine, CHEONEUL, DM, GROUP_OF, PersonAnalysis, Relation, Section, sipsin, sipsinB, Sipsin, spouseElement, stage12 } from './reading';
+import { askLine, characterLine, CHEONEUL, DM, GROUP_OF, PersonAnalysis, Relation, Section, sipsin, sipsinB, Sipsin, spouseElement, stage12 } from './reading';
 
 const hasFinal = (w: string) => { const c = w.charCodeAt(w.length - 1); return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0; };
 const GA = (w: string) => (hasFinal(w) ? '이' : '가');
@@ -127,6 +127,9 @@ export interface LuckPair { pillar: Pillar; label: string; stemS: Sipsin; branch
 export interface YearRow { year: number; pillar: Pillar; me: string; them: string; }
 export interface ExtraReading {
   verdict: Section;
+  teaser: Section;          // 미열람 상태에 보이는 결론 앞부분 + 절벽(cliffhanger)
+  lockQuestions: string[];  // 잠긴 내용을 "답을 알게 되는 질문"으로
+  criteria: string;         // 계산 기준 공개 한 줄
   meSections: Section[];
   themMore: Section[];
   relationSections: Section[];
@@ -163,6 +166,7 @@ function verdict(me: PersonAnalysis, them: PersonAnalysis, rel: Relation[], c: C
     key: 'verdict', label: '먼저 결론부터', title: `${them.name}님은 나에게 ${P.who}`,
     tldr: `궁합 ${c.total}점 — ${band}.`,
     paras: [
+      `나부터 — ${me.name}님, ${askLine(me)} 일지 ${me.pillars[1].branchSipsin}의 기질이에요. 이 기질이 ${them.name}님을 만나면 아래처럼 됩니다.`,
       `${them.name}님은 나에게 — ${toMe}(${P.gloss}). ${P.who}이고, 같이 있으면 ${P.feel}.${isSpouseStar(toMe, me.gender) ? ' 명리에서 말하는 내 배우자 자리의 별이에요.' : ''}`,
       `나는 ${them.name}님에게 — ${toThem}(${fromTheir(Q.gloss, them.name)}). ${them.name}님에게 나는 ${fromTheir(Q.who, them.name)}이고, ${them.name}님은 나와 있을 때 ${fromTheir(Q.feel, them.name)}.${isSpouseStar(toThem, them.gender) ? ` ${them.name}님 입장에서도 배우자 자리의 별이에요.` : ''}`,
       `함께 있으면 — ${together}`,
@@ -171,6 +175,48 @@ function verdict(me: PersonAnalysis, them: PersonAnalysis, rel: Relation[], c: C
     ],
   };
 }
+
+// ── 미열람 티저: 칭찬 → 절벽. 절벽은 실제 계산된 자리(충·원진·십이운성·대운)로 만든다 ──
+function teaser(me: PersonAnalysis, them: PersonAnalysis, rel: Relation[], c: CompatResult, lm: LuckPair[], lt: LuckPair[]): Section {
+  const toMe = sipsin(me.dayStem, them.dayStem);
+  const P = STAR[toMe];
+  const warns = rel.filter((x) => x.tone === 'warn');
+  const stMe = stage12(me.dayStem, them.pillars[1].p!.branch);
+  const bad = new Set(['절', '묘', '사', '병']);
+  const praise = c.total >= 75 ? `이 정도면 흔한 궁합이 아니에요. ${P.who}${GA(P.who)} 맞고, 같이 있으면 ${P.feel}.` : `${P.who}이에요. 같이 있으면 ${P.feel}.`;
+  let cliff: string;
+  if (warns.length) {
+    const w = warns[0];
+    cliff = `두 사주 사이에 걸리는 글자가 ${warns.length}개 있어요. ${w.kind} — ${w.left} × ${w.right}. 이게 연애 어느 단계에서 터지는지, 피하는 방법은—`;
+  } else if (bad.has(stMe)) {
+    cliff = `${them.name}님 곁에서 내 기운은 ${STAGE_SHORT[stMe]}(십이운성 ${stMe}). 왜 그런지, 어떻게 뒤집는지는—`;
+  } else {
+    const meM = lm[0] ? ['재성', '관성'].includes(GROUP_OF[lm[0].stemS]) || ['재성', '관성'].includes(GROUP_OF[lm[0].branchS]) : false;
+    cliff = `점수보다 중요한 게 하나 있어요. 두 사람의 인연 대운이 지금 겹치는지 — ${meM ? '한쪽은 들어와 있는데 다른 한쪽은' : '때가 맞는지는'}—`;
+  }
+  return {
+    key: 'teaser', label: '먼저 결론부터', title: `${them.name}님은 나에게 ${P.who}`,
+    paras: [
+      `나부터 — ${me.name}님, ${askLine(me)} 일지 ${me.pillars[1].branchSipsin}의 기질이에요. 이 기질이 ${them.name}님을 만나면—`,
+      `${them.name}님은 나에게 — ${toMe}(${P.gloss}). ${praise}`,
+      `그런데 — ${cliff}`,
+    ],
+  };
+}
+export function lockQuestions(me: PersonAnalysis, them: PersonAnalysis): string[] {
+  const n = them.name;
+  return [
+    `${n}님은 나에게 어떤 별인가 — 배우자 자리의 별인가`,
+    `${n}님 곁에서 내 기운이 살아나는가, 죽는가`,
+    '같이 살기 시작하면 어디서 부딪히는가',
+    '내게 없는 기운을 이 사람이 채워 주는가',
+    '첫 만남 → 연애 → 결혼 후, 흐름은 어떻게 바뀌는가',
+    '두 사람의 인연 대운이 겹치는 해는 언제인가',
+    '앞으로 3년, 두 사람의 해는 어떤가',
+    '도령의 총평 — 두 사람에게 한마디',
+  ];
+}
+export const CRITERIA = '만세력: 절기 입기 시각을 태양 황경으로 계산 · 시진은 한국 30분 보정(점신·사주도령과 같은 경계) · 십신은 지지 본기, 십이운성은 음간 역행 기준';
 
 // ── 나의 사주 요약 ───────────────────────────────────────
 function meSections(me: PersonAnalysis): Section[] {
@@ -403,6 +449,9 @@ export function extraReading(
   const month = { pillar: mp, me: mline(me), them: mline(them) };
   return {
     verdict: verdict(me, them, rel, c, table),
+    teaser: teaser(me, them, rel, c, lm, lt),
+    lockQuestions: lockQuestions(me, them),
+    criteria: CRITERIA,
     meSections: meSections(me),
     themMore: themMore(them),
     relationSections: relationSections(me, them),

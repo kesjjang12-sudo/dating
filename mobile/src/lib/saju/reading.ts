@@ -241,6 +241,14 @@ const ILJI: Record<Sipsin, { short: string; full: string; love: string }> = {
 };
 const spoken = (a: PersonAnalysis) => a.groupCount.식상 >= 1 ? '아닌 건 아니라고 말하는 편' : a.groupCount.관성 >= 2 ? '불편해도 참고 넘기는 편' : '할 말은 가려서 하는 편';
 
+// 일지 십신에서 나오는 "확인 질문" — 콜드리딩이 아니라 글자 근거가 있는 질문. 결론 카드 첫 줄.
+const ILJI_ASK: Record<Sipsin, string> = {
+  비견: '지는 건 못 참고, 내 몫은 내가 챙기는 편이죠?', 겁재: '경쟁이 붙으면 오히려 힘이 나죠?', 식신: '먹는 거 좋아하고, 좋으면 표정에 다 드러나죠?',
+  상관: '틀린 건 참지 못하고 한마디 하죠?', 편재: '집에 있으면 답답해서 나가고, 벌린 일이 늘 두세 개 있죠?', 정재: '계획 없이 돈 쓰는 게 불편하죠?',
+  편관: '결정은 빨리 하고, 미루는 사람 보면 답답하죠?', 정관: '약속이나 규칙 어기는 사람이 제일 싫죠?', 편인: '혼자 있는 시간이 꼭 필요하고, 생각이 많죠?', 정인: '배우는 건 좋은데 나서는 건 부담이죠?',
+};
+export const askLine = (a: PersonAnalysis) => ILJI_ASK[a.pillars[1].branchSipsin!];
+
 /** 성격 한 줄 — 일간(속) + 일지(겉) + 표현 방식. 화면의 결론 줄과 궁합의 "나의 사주" 요약이 같이 쓴다 */
 export function characterLine(a: PersonAnalysis): { who: string; spoken: string; love: string } {
   const dm = DM[a.dayStem], ilji = ILJI[a.pillars[1].branchSipsin!];

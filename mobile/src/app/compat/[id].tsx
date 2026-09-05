@@ -13,16 +13,18 @@ import { ReportSheet } from '../../components/ReportSheet';
 import { ProfileInfo } from '../../components/ProfileInfo';
 import { ScoreRing } from '../../components/ScoreRing';
 import { Topic, VerdictCard } from '../../components/Topic';
+import { CalcOverlay, CalcStep } from '../../components/CalcOverlay';
 import { useSpend } from '../../components/SpendFlow';
 import { Btn, Chip } from '../../components/ui';
 import { COST } from '../../lib/economy';
 import { BRANCHES_HANJA, STEMS_HANJA } from '../../lib/saju/ganzhi';
 import { fromDateString } from '../../lib/saju/manseryeok';
-import { fullReading, Section } from '../../lib/saju/reading';
+import { fullReading, GROUP_OF, Section, sipsin } from '../../lib/saju/reading';
 import { ElementRow, extraReading, GLOSSARY, YearRow } from '../../lib/saju/reading2';
 import { profileById, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
+const CALC_SHOWN = new Set<string>(); // 세션 내 상대별 1회만 연출
 const parseBirth = (b: string) => { const [y, m, d] = b.split('-').map(Number); return { y, m, d }; };
 
 export default function CompatDetail() {
@@ -36,6 +38,8 @@ export default function CompatDetail() {
   const showToast = useApp((st) => st.showToast);
   const { requestSpend, spendUI } = useSpend();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [calc, setCalc] = useState(() => !!id && !CALC_SHOWN.has(id) && !useApp.getState().unlockedDetails[id]);
+  const endCalc = React.useCallback(() => { if (id) CALC_SHOWN.add(id); setCalc(false); }, [id]);
   const isBlocked = useApp((st) => (id ? st.blocked.includes(id) : false));
   const unblock = useApp((st) => st.unblock);
 
@@ -54,6 +58,14 @@ export default function CompatDetail() {
 
   if (!id || !user || !p || !reading) return null;
   const { compat: c, them } = reading;
+  const goodRel = reading.relations.filter((r) => r.tone === 'good').length, warnRel = reading.relations.filter((r) => r.tone === 'warn').length;
+  const toMe = sipsin(reading.me.dayStem, them.dayStem);
+  const lm = reading.luck.me, lt = reading.luck.them;
+  const calcSteps: CalcStep[] = [
+    { doing: `두 명식 ${reading.me.hasStage ? 8 : 6}글자 × ${them.hasStage ? 8 : 6}글자를 대조하는 중`, found: `합 ${goodRel}개 · 충/원진 ${warnRel}개 발견` },
+    { doing: '십신·십이운성을 맞춰 보는 중', found: `${p.name}님은 나의 ${toMe}(${GROUP_OF[toMe]}) · 상대 배우자궁에서 내 기운은 ${reading.extra.relationSections[1]?.title.split(' · ')[0] ?? '—'}` },
+    { doing: '대운·세운을 겹쳐 보는 중', found: lm && lt ? (lm.marriage && lt.marriage ? '두 사람 모두 인연 대운 — 때가 맞음' : lm.marriage || lt.marriage ? '한쪽만 인연 대운' : '둘 다 인연 대운은 아님 — 세운으로 판단') : '대운 계산 범위 확인' },
+  ];
   const matched = matches.includes(id);
 
   const doSignal = () =>
@@ -98,8 +110,9 @@ export default function CompatDetail() {
           <PillarSummary a={them} />
           {!unlocked ? (
             <LockedReading
-              name={p.name} cost={COST.detail} preview={[reading.extra.verdict, ...reading.themSections, ...reading.extra.relationSections]}
-              labels={[reading.extra.verdict, ...reading.themSections, ...reading.extra.themMore, ...reading.extra.relationSections, ...reading.coupleSections, ...reading.extra.stageSections, ...reading.timingSections, ...reading.extra.timingSections, reading.extra.summary].map((x) => x.label)}
+              name={p.name} cost={COST.detail} teaser={reading.extra.teaser} questions={reading.extra.lockQuestions}
+              preview={[...reading.themSections, ...reading.extra.relationSections]}
+              count={[reading.extra.verdict, ...reading.themSections, ...reading.extra.themMore, ...reading.extra.relationSections, ...reading.coupleSections, ...reading.extra.stageSections, ...reading.timingSections, ...reading.extra.timingSections, reading.extra.summary].length}
               onUnlock={() => requestSpend({
                 cost: COST.detail, reason: 'detail', ref: id, title: '사주 궁합 풀이 해금',
                 desc: `${p.name}님과의 전체 풀이를 열어요. 한 번 열람하면 계속 무료로 볼 수 있어요.`, okLabel: '해금하기',
@@ -167,6 +180,7 @@ export default function CompatDetail() {
         </ScrollView>
       )}
 
+      {calc && <CalcOverlay steps={calcSteps} total={c.total} criteria={reading.extra.criteria} onDone={endCalc} />}
       {(
         <View style={s.cta}>
           {matched
@@ -181,25 +195,32 @@ export default function CompatDetail() {
   );
 }
 
-/** 미열람 상태: 풀이 앞부분을 블러로 비추고 해금 카드를 덮는다 */
-function LockedReading({ name, cost, preview, labels, onUnlock }: { name: string; cost: number; preview: Section[]; labels: string[]; onUnlock: () => void }) {
-  const uniq = [...new Set(labels)];
+/** 미열람 상태: 결론 앞부분(티저)은 그대로 보이고 절벽에서 끊긴다 → 그 아래는 블러 + 해금 카드(질문형 목차) */
+function LockedReading({ name, cost, teaser, questions, count, preview, onUnlock }: { name: string; cost: number; teaser: Section; questions: string[]; count: number; preview: Section[]; onUnlock: () => void }) {
   return (
-    <View style={s.lockWrap}>
-      <View style={s.lockBlur} pointerEvents="none">
-        {preview.slice(0, 3).map((sec) => <Topic key={sec.key} sec={sec} />)}
-      </View>
-      <LinearGradient colors={['rgba(253,251,246,0.15)', 'rgba(253,251,246,0.92)', C.bg]} locations={[0, 0.45, 1]} style={s.lockOverlay} pointerEvents="none" />
-      <View style={s.lockCard}>
-        <Text style={{ fontSize: 26 }}>🔒</Text>
-        <Text style={s.lockTitle}>{name}님과 나의 사주 풀이 {uniq.length}장이 잠겨 있어요</Text>
-        <Text style={s.lockDesc}>결론부터 — 이 사람이 나에게 어떤 별이고 같이 있으면 어떤 느낌인지. 그다음 근거로 서로 채워 주는 기운, 연애의 흐름과 결혼 후, 대운·세운까지. 한 번 해금하면 계속 볼 수 있어요.</Text>
-        <View style={s.lockList}>
-          {uniq.map((l) => <Text key={l} style={s.lockChip}>{l}</Text>)}
+    <>
+      <VerdictCard sec={teaser} />
+      <View style={s.lockWrap}>
+        <View style={s.lockBlur} pointerEvents="none">
+          {preview.slice(0, 3).map((sec) => <Topic key={sec.key} sec={sec} />)}
         </View>
-        <Btn label="해금하기" cost={cost} style={{ alignSelf: 'stretch' }} onPress={onUnlock} />
+        <LinearGradient colors={['rgba(253,251,246,0.15)', 'rgba(253,251,246,0.92)', C.bg]} locations={[0, 0.45, 1]} style={s.lockOverlay} pointerEvents="none" />
+        <View style={s.lockCard}>
+          <Text style={{ fontSize: 26 }}>🔒</Text>
+          <Text style={s.lockTitle}>{name}님과 나의 풀이 {count}장 — 해금하면 이 질문들의 답을 봅니다</Text>
+          <View style={s.lockQ}>
+            {questions.map((q, i) => (
+              <View key={q} style={[s.lockQRow, i > 0 && { borderTopWidth: 1, borderTopColor: C.line }]}>
+                <Text style={s.lockQNum}>{i + 1}</Text>
+                <Text style={s.lockQTxt}>{q}</Text>
+              </View>
+            ))}
+          </View>
+          <Text style={s.lockDesc}>한 번 해금하면 계속 볼 수 있어요. 글자·십신·대운은 전부 계산값이고, 명식표를 눌러 직접 확인할 수 있어요.</Text>
+          <Btn label="이어서 보기 — 해금하기" cost={cost} style={{ alignSelf: 'stretch' }} onPress={onUnlock} />
+        </View>
       </View>
-    </View>
+    </>
   );
 }
 
@@ -248,14 +269,16 @@ function YearTable({ rows, me, them }: { rows: YearRow[]; me: string; them: stri
 const s = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.line, backgroundColor: C.card },
   topTitle: { flex: 1, fontSize: 15.5, fontWeight: '700', color: C.ink },
-  lockWrap: { marginTop: 12, position: 'relative', minHeight: 560 },
+  lockWrap: { marginTop: 12, position: 'relative', minHeight: 640 },
   lockBlur: { opacity: 0.55, filter: 'blur(5px)' },
   lockOverlay: { position: 'absolute', left: -18, right: -18, top: 0, bottom: 0 },
-  lockCard: { position: 'absolute', left: 0, right: 0, top: 120, alignItems: 'center', gap: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.xl, padding: 22, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
+  lockCard: { position: 'absolute', left: 0, right: 0, top: 60, alignItems: 'center', gap: 10, backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.xl, padding: 22, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 18, shadowOffset: { width: 0, height: 8 } },
   lockTitle: { fontFamily: F.serif, fontSize: 18, color: C.ink, textAlign: 'center', lineHeight: 27 },
   lockDesc: { fontSize: 13, color: C.muted, textAlign: 'center', lineHeight: 20 },
-  lockList: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 5, marginVertical: 4 },
-  lockChip: { fontSize: 11, color: C.muted, backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 4, paddingHorizontal: 7, paddingVertical: 3 },
+  lockQ: { alignSelf: 'stretch', backgroundColor: C.bg, borderWidth: 1, borderColor: C.line, borderRadius: 10, overflow: 'hidden', marginVertical: 4 },
+  lockQRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 12, paddingVertical: 9, alignItems: 'flex-start' },
+  lockQNum: { width: 16, fontFamily: F.serif, fontSize: 13, color: C.accentDeep, marginTop: 1 },
+  lockQTxt: { flex: 1, fontSize: 13, color: C.ink, lineHeight: 19, fontWeight: '600' },
   hero: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 18, marginBottom: 12 },
   heroK: { fontSize: 12.5, color: C.faint, fontWeight: '600', letterSpacing: 0.3 },
   heroH: { fontFamily: F.serif, fontSize: 18, color: C.ink, lineHeight: 27, marginTop: 4 },
