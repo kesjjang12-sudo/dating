@@ -1,6 +1,7 @@
 // 운세 — 데일리 출석 파밍(오늘의 운세 +5), 주간 연애운(유료), 내 사주 카드
 
 import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React, { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +9,8 @@ import { Header } from '../../components/Header';
 import { SajuCard } from '../../components/SajuCard';
 import { useSpend } from '../../components/SpendFlow';
 import { Btn, Chip, Sect } from '../../components/ui';
+import { EL_COLOR } from '../../components/PillarGrid';
+import { analyze, characterLine, elementDist, spouseElement } from '../../lib/saju/reading';
 import { COST, EARN } from '../../lib/economy';
 import { BRANCHES_KO } from '../../lib/saju/ganzhi';
 import { dailyFortune, weeklyFortune } from '../../lib/saju/fortune';
@@ -27,6 +30,11 @@ export default function Fortune() {
   const pillars = useMemo(() => myPillars(user), [user]);
   const today = useMemo(() => (pillars ? dailyFortune(new Date(), pillars) : null), [pillars]);
   const weekly = useMemo(() => (pillars ? weeklyFortune(new Date(), pillars) : ''), [pillars]);
+  const me = useMemo(() => {
+    if (!user || !pillars) return null;
+    const a = analyze({ name: user.name, gender: user.gender, pillars });
+    return { a, ch: characterLine(a), dist: elementDist(a), spouseEl: spouseElement(a) };
+  }, [user, pillars]);
 
   if (!user || !pillars || !today) return null;
   const claimed = fortuneDate === todayStr();
@@ -105,8 +113,23 @@ export default function Fortune() {
               : `${user.birth.replace(/-/g, '. ')} · ${BRANCHES_KO[user.hourBranch]}시생`
           }
         />
-        <View style={{ height: 10 }} />
-        <Btn label="내 사주 카드 공유하기" kind="ghost" onPress={() => showToast('사주 카드 이미지가 저장됐어요 (데모)')} />
+        {me && (
+          <View style={s.meBox}>
+            <Text style={s.meLab}>결론</Text>
+            <Text style={s.meTl}>{me.ch.who}, {me.ch.spoken}.</Text>
+            <Text style={s.meSub}>연애는 {me.ch.love}. 잘 맞는 짝은 {me.spouseEl} 기운의 사람 · {me.a.gyeokguk} · {me.a.weak ? '신약' : '신강'}</Text>
+            <View style={s.distRow}>
+              {me.dist.map((d) => (
+                <View key={d.el} style={{ flex: 1, alignItems: 'center', gap: 3 }}>
+                  <View style={s.distBar}><View style={[s.distFill, { height: `${Math.max(8, Math.min(100, d.pct * 2.4))}%`, backgroundColor: EL_COLOR[d.el] }]} /></View>
+                  <Text style={[s.distEl, { color: EL_COLOR[d.el] }]}>{d.el}</Text>
+                  <Text style={[s.distLv, d.level === '발달' && { color: C.accentDeep }, d.level === '부족' && { color: C.coin }, d.level === '없음' && { color: C.faint }]}>{d.level}</Text>
+                </View>
+              ))}
+            </View>
+            <Btn label="내 사주 전체 풀이 보기 — 기질·연애·대운" onPress={() => router.push('/saju/me')} />
+          </View>
+        )}
       </ScrollView>
       {spendUI}
     </SafeAreaView>
@@ -114,6 +137,15 @@ export default function Fortune() {
 }
 
 const s = StyleSheet.create({
+  meBox: { backgroundColor: C.card, borderWidth: 1, borderColor: C.line, borderRadius: R.lg, padding: 16, marginTop: 10, gap: 8 },
+  meLab: { fontSize: 11, fontWeight: '800', color: C.accentDeep, letterSpacing: 1 },
+  meTl: { fontSize: 15, fontWeight: '700', color: C.ink, lineHeight: 23 },
+  meSub: { fontSize: 12.5, color: C.muted, lineHeight: 19 },
+  distRow: { flexDirection: 'row', gap: 6, marginVertical: 6 },
+  distBar: { width: '100%', height: 46, justifyContent: 'flex-end', backgroundColor: C.bg, borderRadius: 6, overflow: 'hidden' },
+  distFill: { width: '100%', borderRadius: 6 },
+  distEl: { fontFamily: F.serif, fontSize: 14 },
+  distLv: { fontSize: 10.5, fontWeight: '700', color: C.good },
   hero: { borderRadius: R.xl, padding: 22, marginBottom: 12 },
   heroDate: { color: 'rgba(255,255,255,0.82)', fontSize: 12, letterSpacing: 0.6 },
   streak: { color: '#fff', fontSize: 11.5, fontWeight: '700', backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 2, overflow: 'hidden' },

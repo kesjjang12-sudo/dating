@@ -11,7 +11,7 @@ import { Sheet, SheetDesc, SheetTitle } from '../../components/Sheet';
 import { Btn, Chip, Sect } from '../../components/ui';
 import { getProfiles } from '../../lib/data/registry';
 import { COST, PASS_PRICE } from '../../lib/economy';
-import { acceptSignal, fetchIncomingSignals, fetchMyMatches, IncomingSignal } from '../../lib/server';
+import { acceptSignal, fetchIncomingSignals, fetchMyMatches, fetchMyViewers, IncomingSignal, ViewerRow } from '../../lib/server';
 import { compatWith, distanceLabel, profileById, useApp } from '../../lib/store';
 import { C, R } from '../../lib/theme';
 
@@ -33,6 +33,9 @@ export default function Inbox() {
   const { requestSpend, spendUI } = useSpend();
   const [passOpen, setPassOpen] = useState(false);
   const [srvIncoming, setSrvIncoming] = useState<IncomingSignal[]>([]);
+  const [srvViewers, setSrvViewers] = useState<ViewerRow[]>([]);
+  const revealedViewers = useApp((st) => st.revealedViewers);
+  const revealViewer = useApp((st) => st.revealViewer);
   const blocked = useApp((st) => st.blocked);
   const blockedBy = useApp((st) => st.blockedBy);
   const hiddenSet = useMemo(() => new Set([...blocked, ...blockedBy]), [blocked, blockedBy]);
@@ -41,6 +44,7 @@ export default function Inbox() {
   useFocusEffect(useCallback(() => {
     if (!serverMode) return;
     void fetchIncomingSignals().then(setSrvIncoming);
+    void fetchMyViewers().then(setSrvViewers);
     void fetchMyMatches().then((hs) => useApp.getState().syncServerMatches(hs));
   }, [serverMode]));
 
@@ -191,14 +195,46 @@ export default function Inbox() {
         )}
 
         <Sect label="나를 조회한 사람" />
-        <View style={s.row}>
-          <Avatar colors={['#8A97AC', '#5A6B84']} initial={`+${viewerCount}`} />
-          <View style={{ flex: 1 }}>
-            <Text style={s.nm}>유리님 외 {viewerCount - 1}명</Text>
-            <Text style={s.ds}>회원님의 프로필을 조회했어요</Text>
+        {serverMode ? (
+          srvViewers.filter((v) => !hiddenSet.has(v.profile.id)).length === 0
+            ? <Text style={s.emptyTxt}>아직 내 프로필을 연 사람이 없어요 — 사진과 프로필을 채우면 조회가 늘어요</Text>
+            : srvViewers.filter((v) => !hiddenSet.has(v.profile.id)).map(({ profile: v, viewedAt }) => {
+              const open = revealedViewers.includes(v.id) || matches.includes(v.id) || !!sentSignals[v.id];
+              const c = compatWith(user, v.id);
+              const go = () => router.push({ pathname: '/compat/[id]', params: { id: v.id } });
+              return (
+                <Pressable key={v.id} style={({ pressed }) => [s.row, pressed && { opacity: 0.8 }]} onPress={open ? go : undefined}>
+                  <Avatar colors={v.colors} initial={open ? v.name[0] : '?'} photoUrl={open ? v.photoUrl : undefined} blurred={!open || !!v.photoUrl} />
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={s.nm}>{open ? v.name : '누군가'}</Text>
+                      <Chip label={`궁합 ${c.total}`} tone="good" />
+                    </View>
+                    <Text style={s.ds}>{open ? `${v.job || '프로필'} · ${distanceLabel(v)}` : '회원님의 프로필을 열어 봤어요'} · {agoLabel(viewedAt)}</Text>
+                  </View>
+                  {open
+                    ? <Text style={{ color: C.faint, fontSize: 18 }}>›</Text>
+                    : <Btn label="확인" cost={COST.unblur} small onPress={() => requestSpend({
+                        cost: COST.unblur, reason: 'unblur', ref: v.id, title: '조회한 인연 확인',
+                        desc: `궁합 ${c.total}점의 인연이 누구인지 확인해요. 확인하면 프로필과 사주 궁합으로 바로 갈 수 있어요.`, okLabel: '확인하기',
+                        onOk: () => { revealViewer(v.id); showToast(`엽전 ${COST.unblur}개를 사용했어요`); },
+                      })} />}
+                </Pressable>
+              );
+            })
+        ) : (
+          <View style={s.row}>
+            <Avatar colors={['#8A97AC', '#5A6B84']} initial={`+${viewerCount}`} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.nm}>유리님 외 {viewerCount - 1}명</Text>
+              <Text style={s.ds}>회원님의 프로필을 조회했어요</Text>
+            </View>
+            <Btn label="목록보기" kind="ghost" small onPress={() => setPassOpen(true)} />
           </View>
-          <Btn label="목록보기" kind="ghost" small onPress={() => setPassOpen(true)} />
-        </View>
+        )}
+        {serverMode && srvViewers.length > 3 && (
+          <Pressable onPress={() => setPassOpen(true)}><Text style={s.passLink}>조회자 전체 공개 — 연분 패스 ›</Text></Pressable>
+        )}
 
         {matches.length > 0 && (
           <>
@@ -234,7 +270,13 @@ export default function Inbox() {
   );
 }
 
+const agoLabel = (iso: string): string => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (m < 1) return '방금'; if (m < 60) return `${m}분 전`; const h = Math.round(m / 60); if (h < 24) return `${h}시간 전`; const d = Math.round(h / 24); return d < 30 ? `${d}일 전` : '한 달 전';
+};
+
 const s = StyleSheet.create({
+  passLink: { fontSize: 12.5, color: C.accentDeep, fontWeight: '700', textAlign: 'center', marginBottom: 12 },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 13, backgroundColor: C.card,
     borderWidth: 1, borderColor: C.line, borderRadius: R.lg, padding: 14, marginBottom: 10,

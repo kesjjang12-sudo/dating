@@ -9,8 +9,7 @@ import { getPilotPinAllReal, getPins, getProfiles, setProfiles } from './data/re
 import { submitRemotePost } from './data/remote';
 import {
   blockUser, fetchBlocks, getMyHandle, getMyProfileId, serverBalance, serverClaimFortune, serverSendMessage, serverSendSignal,
-  serverSignOut, serverSpend, serverTopup, serverUpdateProfile, unblockUser,
-} from './server';
+  serverSignOut, serverSpend, serverTopup, serverUpdateProfile, unblockUser, serverUpdateHour } from './server';
 import { EARN, START_COINS } from './economy';
 import { ProfileFields } from './profile';
 import { compatibility, CompatResult } from './saju/compat';
@@ -44,6 +43,8 @@ interface AppState {
   sentSignals: Record<string, 'pending' | 'accepted'>;
   incomingHandled: Record<string, 'connected' | 'dismissed'>;
   blurUnlocked: boolean;
+  revealedViewers: string[];   // 엽전으로 공개한 조회자 handle
+  revealViewer: (id: string) => void;
   matches: string[];
   chats: Record<string, ChatMsg[]>;
   replyIdx: Record<string, number>;
@@ -180,6 +181,7 @@ export const useApp = create<AppState>()(
       sentSignals: {},
       incomingHandled: {},
       blurUnlocked: false,
+      revealedViewers: [],
       matches: [],
       chats: {},
       replyIdx: {},
@@ -324,6 +326,7 @@ export const useApp = create<AppState>()(
       dismissIncoming: (id) => set({ incomingHandled: { ...get().incomingHandled, [id]: 'dismissed' } }),
 
       setBlurUnlocked: () => set({ blurUnlocked: true }),
+      revealViewer: (id) => set((st) => ({ revealedViewers: st.revealedViewers.includes(id) ? st.revealedViewers : [...st.revealedViewers, id] })),
 
       claimFortune: async () => {
         const { fortuneDate, streak } = get();
@@ -406,6 +409,10 @@ export const useApp = create<AppState>()(
         if (!user || user.hourEdits >= 2) return false;
         compatCache.clear();
         set({ user: { ...user, hourBranch, hourEdits: user.hourEdits + 1 } });
+        const me = getMyHandle();
+        const row = me ? getProfiles().find((p) => p.id === me) : undefined;
+        if (row) row.hourBranch = hourBranch; // 레지스트리 사본도 맞춰 두어 hydrate가 되돌리지 않게
+        void serverUpdateHour(hourBranch);
         return true;
       },
 
@@ -431,7 +438,9 @@ export const useApp = create<AppState>()(
         const merged: ProfileFields = { ...fromServer, ...(user.profile ?? {}) };
         // 사진 검수 상태는 서버가 진실 (운영자 반려 반영)
         const rejected = row.photoStatus === 'rejected';
-        set({ user: { ...user, profile: merged, photoUrl: rejected ? null : (user.photoUrl ?? row.photoUrl ?? null), photoStatus: row.photoStatus ?? user.photoStatus, photoRejectReason: row.photoRejectReason ?? null } });
+        // 출생시간은 서버가 진실 — 운영자가 바로잡거나 다른 기기에서 수정한 값을 따라간다 (사주·궁합 재계산)
+        const hourBranch = row.hourBranch !== undefined && row.hourBranch !== user.hourBranch ? row.hourBranch : user.hourBranch;
+        set({ user: { ...user, hourBranch, profile: merged, photoUrl: rejected ? null : (user.photoUrl ?? row.photoUrl ?? null), photoStatus: row.photoStatus ?? user.photoStatus, photoRejectReason: row.photoRejectReason ?? null } });
       },
 
       setPhotoUrl: (url, status) => {
@@ -469,7 +478,7 @@ export const useApp = create<AppState>()(
           onboarded: false, user: null, coins: START_COINS,
           deckDate: '', deckIds: [], deckPos: 0,
           unlockedDetails: {}, passed: {}, sentSignals: {}, incomingHandled: {},
-          blurUnlocked: false, matches: [], chats: {}, replyIdx: {},
+          blurUnlocked: false, revealedViewers: [], matches: [], chats: {}, replyIdx: {},
           fortuneDate: null, streak: 0, weeklyKey: null, posts: SEED_POSTS, toast: null,
           remoteReady: false, serverMode: false,
           myCoords: null, missionPhotoClaimed: false, referralApplied: false,

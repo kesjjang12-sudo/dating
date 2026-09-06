@@ -4,7 +4,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ElemBars } from '../../components/ElemBars';
@@ -21,6 +21,7 @@ import { BRANCHES_HANJA, STEMS_HANJA } from '../../lib/saju/ganzhi';
 import { fromDateString } from '../../lib/saju/manseryeok';
 import { fullReading, GROUP_OF, Section, sipsin } from '../../lib/saju/reading';
 import { ElementRow, extraReading, GLOSSARY, YearRow } from '../../lib/saju/reading2';
+import { logProfileView } from '../../lib/server';
 import { profileById, useApp } from '../../lib/store';
 import { C, F, R } from '../../lib/theme';
 
@@ -44,6 +45,8 @@ export default function CompatDetail() {
   const unblock = useApp((st) => st.unblock);
 
   const p = id ? profileById(id) : null;
+  const serverMode = useApp((st) => st.serverMode);
+  useEffect(() => { if (id && serverMode) void logProfileView(id); }, [id, serverMode]);
   const reading = useMemo(() => {
     if (!user || !p) return null;
     const mePil = fromDateString(user.birth, user.hourBranch), themPil = fromDateString(p.birth, p.hourBranch);

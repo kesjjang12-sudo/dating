@@ -224,6 +224,40 @@ export async function fetchIncomingSignals(): Promise<IncomingSignal[]> {
   }
 }
 
+/** 출생시간 수정 → 서버 반영 (서버 트리거가 2회 제한을 강제) */
+export async function serverUpdateHour(hourBranch: number | null): Promise<boolean> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return false;
+  try { const { error } = await sb.from('profiles').update({ hour_branch: hourBranch }).eq('id', myProfileId); return !error; } catch { return false; }
+}
+
+/** 프로필 조회 기록 — 상대 페이지를 열 때 한 번. 재조회는 viewed_at만 갱신 */
+export async function logProfileView(handle: string): Promise<void> {
+  const sb = getSupabase();
+  const viewed = getServerId(handle);
+  if (!sb || !myProfileId || !viewed || viewed === myProfileId) return;
+  try { await sb.from('profile_views').upsert({ viewer: myProfileId, viewed, viewed_at: new Date().toISOString() }, { onConflict: 'viewer,viewed' }); } catch { /* 무시 */ }
+}
+
+export interface ViewerRow { profile: SeedProfile; viewedAt: string; }
+/** 나를 조회한 사람 — 최근순. 상대 프로필은 레지스트리에 편입 */
+export async function fetchMyViewers(): Promise<ViewerRow[]> {
+  const sb = getSupabase();
+  if (!sb || !myProfileId) return [];
+  try {
+    const { data, error } = await sb.from('profile_views')
+      .select(`viewed_at, who:profiles!profile_views_viewer_fkey(${PROFILE_COLUMNS})`)
+      .eq('viewed', myProfileId).order('viewed_at', { ascending: false }).limit(50);
+    if (error || !data) return [];
+    return data.map((r) => {
+      const row = r.who as unknown as ProfileRow;
+      const profile = rowToProfile(row);
+      upsertProfile(profile, row.id);
+      return { profile, viewedAt: r.viewed_at as string };
+    });
+  } catch { return []; }
+}
+
 /** 내 서버 매칭 전체 — 상대 프로필을 레지스트리에 편입하고 handle 목록 반환.
  *  신호를 보낸 쪽도 상대의 수락을 이걸로 알게 된다. */
 export async function fetchMyMatches(): Promise<string[]> {
