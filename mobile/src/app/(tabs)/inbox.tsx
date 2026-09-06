@@ -53,10 +53,10 @@ export default function Inbox() {
     [user, remoteReady]
   );
   const viewer = useMemo(() => {
-    if (!user) return null;
+    if (!user || serverMode) return null; // 서버 모드에서는 시드 티저 대신 실제 조회 기록만 보여 준다
     const vs = getProfiles().filter((p) => p.viewedMe && p.gender !== user.gender);
     return vs.sort((a, b) => compatWith(user, b.id).total - compatWith(user, a.id).total)[0] ?? null;
-  }, [user, remoteReady]);
+  }, [user, remoteReady, serverMode]);
   const viewerCount = useMemo(
     () => (user ? getProfiles().filter((p) => p.viewedMe && p.gender !== user.gender).length + 8 : 0),
     [user, remoteReady]
